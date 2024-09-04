@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: cp-portal-chaos-collector
+  freemarker:
+    template-loader-path: classpath:/templates/
+
+jwt:
+  secret: cp-secret
+  expirationDateInMs: 3600000
+
+project:
+  name: cp-portal-chaos-collector
+  artifactId: cp-portal-chaos-collector
+  description: Chaos Collector of the Container Platform Portal
+
+management:
+  security:
+    enabled: false
+
+cpNamespace:
+  ignoreNamespace: kubernetes-dashboard, kube-node-lease, kube-public, kube-system, default, cp-temp-namespace
+  defaultNamespace: cp-portal-temp-namespace
+
+cpMaster:
+  api:
+    url: TEST-ONLY.DUMMY.COM:6443
+    list:
+      roleBindings:
+        create: "/apis/rbac.authorization.k8s.io/v1/namespaces/{namespace}/rolebindings"
+        delete: "/apis/rbac.authorization.k8s.io/v1/namespaces/{namespace}/rolebindings/{name}"
+      users:
+        get: "/api/v1/namespaces/{namespace}/serviceaccounts/{name}"
+        create: "/api/v1/namespaces/{namespace}/serviceaccounts"
+        delete: "/api/v1/namespaces/{namespace}/serviceaccounts/{name}"
+      namespaces:
+        list: "/api/v1/namespaces"
+        get: "/api/v1/namespaces/{namespace}"
+        create: "/api/v1/namespaces"
+        delete: "/api/v1/namespaces/{name}"
+        update: "/api/v1/namespaces/{name}"
+      secrets:
+        get: "/api/v1/namespaces/{namespace}/secrets/{name}"
+        create: "/api/v1/namespaces/{namespace}/secrets"
+      clusterRoleBindings:
+        create: "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings"
+        delete: "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/{name}"
+
+commonApi:
+  url: ${CP_PORTAL_COMMON_API_URI}
+  authorization:
+    id: admin
+    password: cpcommon!123
+
