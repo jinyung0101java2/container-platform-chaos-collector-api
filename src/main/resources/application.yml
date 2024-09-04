@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: cp-chaos-collector
+  security:
+    username: admin
+    password: cpcollector!123
+  freemarker:
+    template-loader-path: classpath:/templates/
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  cloud:
+    vault:
+      scheme: http
+      uri: ${VAULT_URL}
+      authentication: APPROLE
+      kv:
+        enabled: true
+        backend: secret
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
+        role: ${VAULT_ROLE_NAME}
+        app-role-path: approle
+      config:
+        lifecycle:
+          enabled: true
+          min-renewal: 10s
+          expiry-threshold: 1m
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  security:
+    enabled: false
+
+server:
+  port: ${PORT:8094}
+  auth:
+    valid: N
+
+vault:
+  path:
+    cluster-token: "secret/cluster/{id}"
+
+aspect:
+  enabled: false # for checking Elapsed time
+
+
+cpMaster:
+  api:
+    metrics:
+      node:
+        list: "/apis/metrics.k8s.io/v1beta1/nodes"
+        get: "/apis/metrics.k8s.io/v1beta1/nodes/{name}"
+      pod:
+        list: "/apis/metrics.k8s.io/v1beta1/namespaces/{namespace}/pods"
+        get: "/apis/metrics.k8s.io/v1beta1/namespaces/{namespace}/pods/{name}"
+
+
+commonApi:
+  url: ${CP_PORTAL_COMMON_API_URI}
+  authorization:
+    id: admin
+    password: cpcommon!123
