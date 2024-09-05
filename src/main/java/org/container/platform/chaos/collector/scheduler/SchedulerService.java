@@ -6,6 +6,7 @@ import org.container.platform.chaos.collector.common.Constants;
 import org.container.platform.chaos.collector.common.RestTemplateService;
 import org.container.platform.chaos.collector.common.model.ChaosCollector;
 import org.container.platform.chaos.collector.common.model.ChaosResource;
+import org.container.platform.chaos.collector.common.model.ChaosResourcesList;
 import org.container.platform.chaos.collector.common.model.Params;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -18,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 /**
  * SchedulerService 클래스
@@ -46,12 +48,30 @@ public class SchedulerService {
     private final CommonService commonService;
 
 
-    public ChaosResource getChaosResource(Params params) {
-        HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_COMMON_API,
-                "/chaos/resourceGraph", HttpMethod.GET, null, Map.class, params);
+    public ChaosResourcesList getChaosResource(Params params) {
+        List<Long> resourceIds = params.getStressChaosResourceIds();
+        String queryParams = resourceIds.stream()
+                .map(resourceId -> "resourceId=" + resourceId)
+                .collect(Collectors.joining("&"));
 
-        ChaosResource resourceUsageOfChaosList = commonService.setResultObject(responseMap, ChaosResource.class);
-        return (ChaosResource) commonService.setResultModel(resourceUsageOfChaosList, Constants.RESULT_STATUS_SUCCESS);
+        ChaosResourcesList chaosResourcesList = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
+                "/chaos/chaosResourcesList?" + queryParams, HttpMethod.GET, null, ChaosResourcesList.class, params);
+
+        System.out.println("chaosResourcesList.items : " + chaosResourcesList.getItems());
+
+
+        //addSchedule(chaosResourcesList);
+
+        return (ChaosResourcesList) commonService.setResultModel(chaosResourcesList, Constants.RESULT_STATUS_SUCCESS);
+    }
+
+    private void addSchedule(ChaosResourcesList chaosResourcesList) {
+// 데이터 분류
+
+
+
+   //     scheduledFuture = threadPoolTaskScheduler.schedule(() -> executeTask(), new CronTrigger("0/5 * * * * ?"));
+
 
     }
 

@@ -7,6 +7,7 @@ import io.swagger.annotations.ApiOperation;
 import org.container.platform.chaos.collector.common.CommonService;
 import org.container.platform.chaos.collector.common.Constants;
 import org.container.platform.chaos.collector.common.model.ChaosCollector;
+import org.container.platform.chaos.collector.common.model.ChaosResourcesList;
 import org.container.platform.chaos.collector.common.model.Params;
 import org.container.platform.chaos.collector.common.model.ResultStatus;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,20 +53,11 @@ public class SchedulerController {
     @PostMapping
     public ResultStatus setScheduler(@RequestBody Params params) {
         System.out.println("resultList : " + params.getStressChaosResourceIds());
-        System.out.println("namespace : " + params.getNamespace());
+        System.out.println("namespace : " + params.getNamespace());  //  Namespace in choas selector
+        System.out.println("chaosName : " + params.getChaosNamespace()); // origin Namespace
 
-        schedulerService.getChaosResource(params);
-
-
-        ResultStatus resultStatus = new ResultStatus("SUCCESS", "성공",200, "");
-
-
+        ChaosResourcesList resultStatus = schedulerService.getChaosResource(params);
         return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
+
     }
-
-
-
-
-
-
 }
