@@ -96,7 +96,7 @@ public class Params {
     private String object_id = Constants.EMPTY_STRING;
     private Boolean event = false;
     private List statusList;
-    private List stressChaosResourceIds;
+    private List<Long> stressChaosResourceIds;
 
 
     private String browser = Constants.EMPTY_STRING;

@@ -19,6 +19,9 @@ public class ResultStatus {
     private String detailMessage;
     private String nextActionUrl;
 
+    public ResultStatus() {
+    }
+
     public ResultStatus(String resultCode, String resultMessage, int httpStatusCode, String detailMessage) {
         this.resultCode = resultCode;
         this.resultMessage = resultMessage;
