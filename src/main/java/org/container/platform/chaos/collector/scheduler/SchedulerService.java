@@ -13,6 +13,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,7 +58,7 @@ public class SchedulerService {
         ChaosResourcesList chaosResourcesList = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
                 "/chaos/chaosResourcesList?" + queryParams, HttpMethod.GET, null, ChaosResourcesList.class, params);
 
-        System.out.println("chaosResourcesList.items : " + chaosResourcesList.getItems());
+        System.out.println("chaosResourcesList : " + chaosResourcesList);
 
 
         //addSchedule(chaosResourcesList);
@@ -65,15 +66,31 @@ public class SchedulerService {
         return (ChaosResourcesList) commonService.setResultModel(chaosResourcesList, Constants.RESULT_STATUS_SUCCESS);
     }
 
-    private void addSchedule(ChaosResourcesList chaosResourcesList) {
+    public void addSchedule(ChaosResourcesList chaosResourcesList) {
 // 데이터 분류
+//        LocalDateTime startTime = LocalDateTime.parse(chaosResourcesList.getItems().get(0).getStressChaos().getCreationTime());
+//        LocalDateTime endTime = LocalDateTime.parse(chaosResourcesList.getItems().get(0).getStressChaos().getEndTime());
+//        String duration = chaosResourcesList.getItems().get(0).getStressChaos().getDuration();
+//        String namespace = chaosResourcesList.getItems().get(0).getStressChaos().getNamespaces();
+//
+//        Long resourceId;
+//        String resouceName;
+//        String type;
+//        int choice;
+
+//        timeConverter(duration);
 
 
 
-   //     scheduledFuture = threadPoolTaskScheduler.schedule(() -> executeTask(), new CronTrigger("0/5 * * * * ?"));
+   //     scheduledFuture = threadPoolTaskScheduler.schedule(() -> executeTask(chaosResourcesList, startTime, endTime), new CronTrigger("0/5 * * * * ?"));
 
 
     }
+
+//    public String timeConverter(String duration) {
+//
+//        return duration;
+//    }
 
     public void threadOverheadMeasurement() {
         int iterations = 10000;
