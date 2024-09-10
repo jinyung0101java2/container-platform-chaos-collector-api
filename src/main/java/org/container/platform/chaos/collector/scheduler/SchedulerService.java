@@ -4,22 +4,18 @@ import lombok.RequiredArgsConstructor;
 import org.container.platform.chaos.collector.common.CommonService;
 import org.container.platform.chaos.collector.common.Constants;
 import org.container.platform.chaos.collector.common.RestTemplateService;
-import org.container.platform.chaos.collector.common.model.ChaosCollector;
-import org.container.platform.chaos.collector.common.model.ChaosResource;
 import org.container.platform.chaos.collector.common.model.ChaosResourcesList;
 import org.container.platform.chaos.collector.common.model.Params;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.time.*;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -35,14 +31,7 @@ public class SchedulerService {
 
     private final ThreadPoolTaskScheduler threadPoolTaskScheduler;
     private ScheduledFuture<?> scheduledFuture;
-
-    private ScheduledFuture<?> scheduledFutureCheck;
-
-    private final List<ScheduledFuture<?>> scheduledFutures = new ArrayList<>();
-
-    private final Map<String, ScheduledFuture<?>> schedulers = new ConcurrentHashMap<>();
-    private LocalTime startTime;
-    private LocalTime endTime;
+    private final Map<String, ScheduledFuture<?>> scheduledFutures = new ConcurrentHashMap<>();
 
     private final RestTemplateService restTemplateService;
 
@@ -59,140 +48,57 @@ public class SchedulerService {
                 "/chaos/chaosResourcesList?" + queryParams, HttpMethod.GET, null, ChaosResourcesList.class, params);
 
         System.out.println("chaosResourcesList : " + chaosResourcesList);
-
-
-        //addSchedule(chaosResourcesList);
+        addSchedule(chaosResourcesList);
 
         return (ChaosResourcesList) commonService.setResultModel(chaosResourcesList, Constants.RESULT_STATUS_SUCCESS);
     }
 
     public void addSchedule(ChaosResourcesList chaosResourcesList) {
-// 데이터 분류
-//        LocalDateTime startTime = LocalDateTime.parse(chaosResourcesList.getItems().get(0).getStressChaos().getCreationTime());
-//        LocalDateTime endTime = LocalDateTime.parse(chaosResourcesList.getItems().get(0).getStressChaos().getEndTime());
-//        String duration = chaosResourcesList.getItems().get(0).getStressChaos().getDuration();
-//        String namespace = chaosResourcesList.getItems().get(0).getStressChaos().getNamespaces();
-//
-//        Long resourceId;
-//        String resouceName;
-//        String type;
-//        int choice;
-
-//        timeConverter(duration);
-
-
-
-   //     scheduledFuture = threadPoolTaskScheduler.schedule(() -> executeTask(chaosResourcesList, startTime, endTime), new CronTrigger("0/5 * * * * ?"));
-
-
-    }
-
-//    public String timeConverter(String duration) {
-//
-//        return duration;
-//    }
-
-    public void threadOverheadMeasurement() {
-        int iterations = 10000;
-        long totalCreationTime = 0;
-        long totalTerminationTime = 0;
-
-        for (int i = 0; i < iterations; i++) {
-            long startTime = System.nanoTime();
-            Thread thread = new Thread(() -> {
-                // 스레드 작업 할거~
-            });
-            long creationTime = System.nanoTime() - startTime;
-            startTime = System.nanoTime();
-            thread.start();
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            long terminationTime = System.nanoTime() - startTime;
-            totalCreationTime += creationTime;
-            totalTerminationTime += terminationTime;
+        LocalDateTime startTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getCreationTime()), ZoneId.systemDefault());
+        LocalDateTime endTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getEndTime()), ZoneId.systemDefault());
+        String duration = chaosResourcesList.getItems().get(0).getStressChaos().getDuration();
+        Pattern pattern = Pattern.compile("^(\\d+)([smh]|ms)$");
+        Matcher matcher = pattern.matcher(duration);
+        int time = 0;
+        String unit = "";
+        if (matcher.matches()) {
+            time = Integer.parseInt(matcher.group(1));
+            unit = matcher.group(2);
         }
-        double averageCreationTime = totalCreationTime / (double) iterations;
-        double averageTerminationTime = totalTerminationTime / (double) iterations;
-        System.out.println("스레드 생성 평균 시간: " + averageCreationTime + " ns");
-        System.out.println("스레드 종료 평균 시간: " + averageTerminationTime + " ns");
-    }
+        String chaosId = String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId());
 
-    public void threadPoolOverheadMeasurement() throws InterruptedException, ExecutionException {
-        int poolSize = 5;
-        int numTasks = 100;
-        long startTime, endTime;
-
-        ExecutorService executorService = Executors.newFixedThreadPool(poolSize);
-        List<Future<?>> futures = new ArrayList<>();
-        long memoryBefore = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-        startTime = System.nanoTime();
-
-        for (int i = 0; i < numTasks; i++) {
-            futures.add(executorService.submit(() -> {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }));
+        if((unit.equals("ms") && time >= 60000 && time < 3600000) || (unit.equals("s") && time >= 60 && time < 3600) || (unit.equals("m") && time >= 1 && time < 60)){
+            scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, endTime),  60000);
+        }else if((unit.equals("ms") && time >= 3600000) || (unit.equals("s") && time >= 3600) || (unit.equals("m") && time >= 60) || (unit.equals("h"))){
+            scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, endTime),  3600000);
         }
-
-        for (Future<?> future : futures) {
-            future.get();
-        }
-        endTime = System.nanoTime();
-        long memoryAfter = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-        executorService.shutdown();
-        executorService.awaitTermination(1, TimeUnit.MINUTES);
-        System.out.println("총 시간: " + (endTime - startTime) / 1_000_000 + " ms");
-        System.out.println("Memory 사용량: " + (memoryAfter - memoryBefore) / 1024 + " KB");
+        scheduledFutures.put(chaosId, scheduledFuture);
+        System.out.println("scheduledFutures : " + scheduledFutures.keySet());
     }
 
-    public void startTask(String name, int starthour, int startmin, int endhour, int endmin) {
-        startTime = LocalTime.of(starthour, startmin);
-        endTime = LocalTime.of(endhour, endmin);
-        System.out.println("startTime : " + startTime + "\nendTime : " + endTime + "");
-
-        String prefix = threadPoolTaskScheduler.getThreadNamePrefix();
-        String groupName = String.valueOf(threadPoolTaskScheduler.getThreadGroup());
-        int activeCount = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getActiveCount();
-        int poolSize = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getPoolSize();
-        int corePoolSize = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getCorePoolSize();
-        int queueSize = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getQueue().size();
-        long count = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getTaskCount();
-        System.out.printf("시작 전 " + LocalTime.now() + " " + name + " " + endTime + " Group: %s, Prefix: %s, Threads: %d, PoolSize: %d, CorePoolSize: %d, QueueSize: %d TaskCount : %d%n", groupName, prefix, activeCount, poolSize, corePoolSize, queueSize, count);
-
-        scheduledFuture = threadPoolTaskScheduler.schedule(() -> executeTask(name, endTime), new CronTrigger("0/5 * * * * ?"));
-        System.out.println("해쉬코드 : " + scheduledFuture.hashCode());
-
-    }
-
-    private void executeTask(String name, LocalTime endTime) {
-        LocalTime now = LocalTime.now();
-
-        String prefix = threadPoolTaskScheduler.getThreadNamePrefix();
-        String groupName = String.valueOf(threadPoolTaskScheduler.getThreadGroup());
-        int activeCount = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getActiveCount();
-        int poolSize = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getPoolSize();
-        int corePoolSize = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getCorePoolSize();
-        int queueSize = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getQueue().size();
-        long count = threadPoolTaskScheduler.getScheduledThreadPoolExecutor().getTaskCount();
+    public void executeSchedule(ChaosResourcesList chaosResourcesList, LocalDateTime startTime, LocalDateTime endTime) {
+        LocalDateTime now = LocalDateTime.now();
+        String chaosId = String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId());
 
         if (now.isAfter(startTime) && now.isBefore(endTime)) {
-            System.out.printf("실행 중 " + LocalTime.now() + " " + name + " " + endTime + " Group: %s, Prefix: %s, Threads: %d, PoolSize: %d, CorePoolSize: %d, QueueSize: %d TaskCount : %d%n", groupName, prefix, activeCount, poolSize, corePoolSize, queueSize, count);
+            System.out.println("실행 중 " + chaosId + " " + scheduledFutures.get(chaosId).hashCode() + " 시작: " + startTime + " 현재: " +  LocalDateTime.now() + " 끝: " + endTime);
+
+
+
         } else if (now.isAfter(endTime)) {
-
+            System.out.println("실행 끝 " + chaosId + " " + scheduledFutures.get(chaosId).hashCode() + " 시작: " + startTime + " 현재: " +  LocalDateTime.now() + " 끝: " + endTime);
             if (scheduledFuture != null && !scheduledFuture.isCancelled()) {
-                scheduledFuture.cancel(true);
-
-                System.out.println("해쉬코드 : " + scheduledFuture.hashCode() + " cancel? " + scheduledFuture.isCancelled());
-                System.out.printf("캔슬 됨 " + LocalTime.now() + " " + name + " " + endTime + " Group: %s, Prefix: %s, Threads: %d, PoolSize: %d, CorePoolSize: %d, QueueSize: %d TaskCount : %d%n", groupName, prefix, activeCount, poolSize, corePoolSize, queueSize, count);
+                scheduledFutures.get(chaosId).cancel(true);
+                System.out.println("해쉬코드 : " + scheduledFutures.get(chaosId).hashCode() + " cancel? " + scheduledFutures.get(chaosId).isCancelled());
+                scheduledFutures.remove(chaosId);
+                System.out.println("잔여 scheduledFutures : " + scheduledFutures.keySet());
             }
         } else {
-            System.out.printf("시간 외 " + LocalTime.now() + " " + name + " " + endTime + " Group: %s, Prefix: %s, Threads: %d, PoolSize: %d, CorePoolSize: %d, QueueSize: %d TaskCount : %d%n", groupName, prefix, activeCount, poolSize, corePoolSize, queueSize, count);
+            System.out.println("시간 외 " + chaosId + " 시작: " + startTime + " 현재: " +  LocalDateTime.now() + " 끝: " + endTime);
         }
     }
+
+
+
+
 }
