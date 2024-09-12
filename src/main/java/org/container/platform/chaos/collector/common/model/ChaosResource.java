@@ -1,5 +1,6 @@
 package org.container.platform.chaos.collector.common.model;
 
+import lombok.Builder;
 import lombok.Data;
 
 /**
@@ -10,6 +11,7 @@ import lombok.Data;
  * @since 2024-09-04
  */
 @Data
+@Builder
 public class ChaosResource {
     private long resourceId;
     private long chaosId;
@@ -20,6 +22,7 @@ public class ChaosResource {
     private String generateName;
     private String chaosName;
     private String namespaces;
+
 
     @Override
     public String toString() {
