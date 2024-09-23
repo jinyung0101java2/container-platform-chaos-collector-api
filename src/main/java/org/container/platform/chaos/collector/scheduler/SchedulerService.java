@@ -3,6 +3,7 @@ package org.container.platform.chaos.collector.scheduler;
 import lombok.RequiredArgsConstructor;
 import org.container.platform.chaos.collector.common.CommonService;
 import org.container.platform.chaos.collector.common.Constants;
+import org.container.platform.chaos.collector.common.PropertyService;
 import org.container.platform.chaos.collector.common.RestTemplateService;
 import org.container.platform.chaos.collector.common.model.ChaosResourcesList;
 import org.container.platform.chaos.collector.common.model.Params;
@@ -12,7 +13,9 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -39,12 +42,16 @@ public class SchedulerService {
 
     private final CommonService commonService;
 
+    private final PropertyService propertyService;
+
+
+
     public ChaosResourcesList getChaosResource(Params params) {
         List<Long> resourceIds = params.getStressChaosResourceIds();
         String queryParams = resourceIds.stream()
                 .map(resourceId -> "resourceId=" + resourceId)
                 .collect(Collectors.joining("&"));
-
+        System.out.println("get Chaos Resource");
         ChaosResourcesList chaosResourcesList = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
                 "/chaos/chaosResourcesList?" + queryParams, HttpMethod.GET, null, ChaosResourcesList.class, params);
 
@@ -77,10 +84,10 @@ public class SchedulerService {
     }
 
     public void executeSchedule(ChaosResourcesList chaosResourcesList, LocalDateTime startTime, LocalDateTime endTime, Params params) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.parse(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
         String chaosId = String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId());
 
-        if (now.isAfter(startTime) && now.isBefore(endTime)) {
+        if (now.isAfter(startTime) || now.isEqual(startTime) && now.isBefore(endTime) || now.isEqual(endTime)) {
             System.out.println("실행 중 " + chaosId + " " + scheduledFutures.get(chaosId).hashCode() + " 시작: " + startTime + " 현재: " +  now + " 끝: " + endTime);
 
           List<ChaosResourceUsage> chaosResourceUsages = new ArrayList<>();
@@ -92,18 +99,23 @@ public class SchedulerService {
                         .build();
 
                 if(chaosResourcesList.getItems().get(i).getType().equals("node")){
+                    params.setNodeName(chaosResourcesList.getItems().get(i).getResourceName());
+                    Map<String, String> resourceMap = getResourceNode(params);
+
                     ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
                             .chaosResourceUsageId(chaosResourceUsageId)
-                            .cpu(getResouceNodeCpu())
-                            .memory(getResouceNodeMemory())
+                            .cpu(resourceMap.get("cpu"))
+                            .memory(resourceMap.get("memory"))
                             .build();
 
                     chaosResourceUsages.add(chaosResourceUsage);
                 }else if(chaosResourcesList.getItems().get(i).getType().equals("pod")){
+                    Map<String, String> resourceMap = getResourcePod(params);
+
                     ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
                             .chaosResourceUsageId(chaosResourceUsageId)
-                            .cpu(getResoucePodCpu())
-                            .memory(getResoucePodMemory())
+                            .cpu(resourceMap.get("cpu"))
+                            .memory(resourceMap.get("memory"))
                             .appStatus(getAppStatus())
                             .build();
 
@@ -132,28 +144,29 @@ public class SchedulerService {
                 System.out.println("잔여 scheduledFutures : " + scheduledFutures.keySet());
             }
         } else {
-            System.out.println("시간 외 " + chaosId + " 시작: " + startTime + " 현재: " +  LocalDateTime.now() + " 끝: " + endTime);
+            System.out.println("시간 외 " + chaosId + " 시작: " + startTime + " 현재: " +  now + " 끝: " + endTime);
         }
     }
 
-    public String getResouceNodeCpu() {
-        String cpu = "8";
-        return cpu;
+    public Map<String, String> getResourceNode(Params params) {
+        System.out.println("nodeName : " + params.getNodeName());
+        Map<String, String> resourceMap = new HashMap<>();
+
+        HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
+                propertyService.getCpMasterApiMetricsNodesGetUrl(), HttpMethod.GET, null, Map.class, params);
+            System.out.println("node responseMap : " + responseMap);
+        NodeMetrics nodeMetrics = commonService.setResultObject(responseMap, NodeMetrics.class);
+        System.out.println("node nodeMetrics : " + nodeMetrics);
+
+        return resourceMap;
     }
 
-    public String getResoucePodCpu() {
-        String cpu = "8";
-        return cpu;
+    public Map<String, String> getResourcePod(Params params) {
+        Map<String, String> resourceMap = new HashMap<>();
+
+        return resourceMap;
     }
 
-    public String getResouceNodeMemory() {
-        String memory = "3";
-        return memory;
-    }
-    public String getResoucePodMemory() {
-        String memory = "3";
-        return memory;
-    }
     public Integer getAppStatus() {
         Integer appStatus = 1;
         return appStatus;

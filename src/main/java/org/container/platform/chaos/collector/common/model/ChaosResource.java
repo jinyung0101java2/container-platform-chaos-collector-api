@@ -14,27 +14,25 @@ import lombok.Data;
 @Builder
 public class ChaosResource {
     private long resourceId;
-    private long chaosId;
     private StressChaos stressChaos;
     private String resourceName;
     private String type;
-    private Integer choice;
+    private int choice;
     private String generateName;
     private String chaosName;
     private String namespaces;
 
+    public ChaosResource() {
 
-    @Override
-    public String toString() {
-        return "\nChaosResource{" +
-                "resourceId=" + resourceId +
-                ", stressChaos=" + stressChaos +
-                ", resourceName='" + resourceName + '\'' +
-                ", type='" + type + '\'' +
-                ", choice=" + choice +
-                ", generateName='" + generateName + '\'' +
-                ", chaosName='" + chaosName + '\'' +
-                ", namespaces='" + namespaces + '\'' +
-                "}";
+    }
+    public ChaosResource(long resourceId, StressChaos stressChaos, String resourceName, String type, int choice, String generateName, String chaosName, String namespaces) {
+        this.resourceId = resourceId;
+        this.stressChaos = stressChaos;
+        this.resourceName = resourceName;
+        this.type = type;
+        this.choice = choice;
+        this.generateName = generateName;
+        this.chaosName = chaosName;
+        this.namespaces = namespaces;
     }
 }

@@ -21,4 +21,8 @@ public class StressChaos {
     private String creationTime;
     private String endTime;
     private String duration;
+
+    public StressChaos(){
+
+    }
 }

@@ -245,7 +245,7 @@ public class RestTemplateService {
 
         // K8S MASTER API
         if (Constants.TARGET_CP_MASTER_API.equals(reqApi)) {
-            Clusters clusters = (params.getIsClusterToken()) ? vaultService.getClusterDetails(params.getCluster()) : commonService.getKubernetesInfo(params);
+            Clusters clusters = vaultService.getClusterDetails(params.getCluster());
             Assert.notNull(clusters, "Invalid parameter");
             apiUrl = clusters.getClusterApiUrl();
             authorization = "Bearer " + clusters.getClusterToken();
@@ -272,7 +272,7 @@ public class RestTemplateService {
             if (httpMethod.equals(HttpMethod.GET) && params.getNamespace().equalsIgnoreCase(Constants.ALL_NAMESPACES)) {
                 reqUrl = reqUrl.replace("namespaces/{namespace}/", "");
             }
-            reqUrl = reqUrl.replace("{namespace}", params.getNamespace()).replace("{name}", params.getResourceName()).replace("{chaosname}", params.getName()).replace("{chaosnamespace}", params.getChaosNamespace());
+            reqUrl = reqUrl.replace("{namespace}", params.getNamespace()).replace("{name}", params.getResourceName()).replace("{chaosname}", params.getName()).replace("{chaosnamespace}", params.getChaosNamespace()).replace("{nodename}", params.getNodeName());
         }
 
         if (reqApi.equals(Constants.TARGET_CHAOS_API)) {
