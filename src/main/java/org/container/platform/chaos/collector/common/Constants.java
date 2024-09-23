@@ -31,6 +31,7 @@ public class Constants {
     //cluster
     public static final String RESOURCE_NAMESPACE = "Namespace";
 
+    public static final String NULL_REPLACE_TEXT = "-";
     public static final String U_LANG_KO = "ko";
     public static final String U_LANG_ENG = "en";
 

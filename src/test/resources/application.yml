@@ -4,10 +4,6 @@ spring:
   freemarker:
     template-loader-path: classpath:/templates/
 
-jwt:
-  secret: cp-secret
-  expirationDateInMs: 3600000
-
 project:
   name: cp-portal-chaos-collector
   artifactId: cp-portal-chaos-collector
