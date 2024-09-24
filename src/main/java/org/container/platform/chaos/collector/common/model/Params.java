@@ -97,7 +97,7 @@ public class Params {
     private Boolean event = false;
     private List statusList;
     private List<Long> stressChaosResourceIds;
-
+    private String podName;
 
     private String browser = Constants.EMPTY_STRING;
     private String clientIp = Constants.EMPTY_STRING;
