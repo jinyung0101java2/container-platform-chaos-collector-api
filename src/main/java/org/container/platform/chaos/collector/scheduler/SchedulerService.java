@@ -56,7 +56,6 @@ public class SchedulerService {
         String queryParams = resourceIds.stream()
                 .map(resourceId -> "resourceId=" + resourceId)
                 .collect(Collectors.joining("&"));
-        System.out.println("get Chaos Resource");
         ChaosResourcesList chaosResourcesList = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
                 "/chaos/chaosResourcesList?" + queryParams, HttpMethod.GET, null, ChaosResourcesList.class, params);
 
@@ -105,32 +104,39 @@ public class SchedulerService {
 
                 if(chaosResourcesList.getItems().get(i).getType().equals("node")){
                     params.setNodeName(chaosResourcesList.getItems().get(i).getResourceName());
-                    Map<String, String> resourceMap = getResourceNode(params);
-                    System.out.println("node out resourceMap : " + resourceMap);
+                    NodeMetrics nodeMetrics = getResourceNode(params);
+
                     ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
                             .chaosResourceUsageId(chaosResourceUsageId)
-                            .cpu(resourceMap.get("cpu"))
-                            .memory(resourceMap.get("memory"))
+                            .cpu(String.valueOf(convertUsageUnit(Constants.CPU_UNIT, nodeMetrics.getUsage().get("cpu").getNumber().doubleValue())))
+                            .memory(String.valueOf(convertUsageUnit(Constants.MEMORY, nodeMetrics.getUsage().get("memory").getNumber().doubleValue())))
                             .build();
-
                     chaosResourceUsages.add(chaosResourceUsage);
+
                 }else if(chaosResourcesList.getItems().get(i).getType().equals("pod")){
                     params.setPodName(chaosResourcesList.getItems().get(i).getResourceName());
-                    Map<String, Object> resourceMap = getResourcePod(params);
-                    System.out.println("pod out resourceMap cpu : " + resourceMap.get("cpu"));
-                    System.out.println("pod out resourceMap memory : " + resourceMap.get("memory"));
+                    PodMetrics podMetrics = getResourcePod(params);
 
-                    ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
-                            .chaosResourceUsageId(chaosResourceUsageId)
-                            .cpu((String) resourceMap.get("cpu"))
-                            .memory((String) resourceMap.get("memory"))
-                            .appStatus(getAppStatus())
-                            .build();
-
-                    chaosResourceUsages.add(chaosResourceUsage);
+                    if(chaosResourcesList.getItems().get(i).getChoice() == 1) {
+                        ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
+                                .chaosResourceUsageId(chaosResourceUsageId)
+                                .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics).values().toString())
+                                .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics).values().toString())
+                                .appStatus(getAppStatus())
+                                .build();
+                        chaosResourceUsages.add(chaosResourceUsage);
+                    }else {
+                        ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
+                                .chaosResourceUsageId(chaosResourceUsageId)
+                                .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics).values().toString())
+                                .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics).values().toString())
+                                .build();
+                        chaosResourceUsages.add(chaosResourceUsage);
+                    }
                 }
             }
 
+            System.out.println("chaosResourceUsages : " + chaosResourceUsages);
             ChaosResourceUsageList chaosResourceUsageList = ChaosResourceUsageList.builder()
                     .items(chaosResourceUsages)
                     .build();
@@ -156,44 +162,24 @@ public class SchedulerService {
         }
     }
 
-    public Map<String, String> getResourceNode(Params params) {
-        Map<String, String> resourceMap = new HashMap<>();
+    public NodeMetrics getResourceNode(Params params) {
         HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiMetricsNodesGetUrl(), HttpMethod.GET, null, Map.class, params);
-        System.out.println("node responseMap : " + responseMap);
-        NodeMetrics nodeMetrics = commonService.setResultObject(responseMap, NodeMetrics.class);
-        System.out.println("node nodeMetrics : " + nodeMetrics);
-
-        String cpu = String.valueOf(convertUsageUnit(Constants.CPU_UNIT, nodeMetrics.getUsage().get("cpu").getNumber().doubleValue()));
-        String memory = String.valueOf(convertUsageUnit(Constants.MEMORY, nodeMetrics.getUsage().get("memory").getNumber().doubleValue()));
-        resourceMap.put("cpu", cpu);
-        resourceMap.put("memory", memory);
-
-//        resourceMap.put("cpu", nodeMetrics.getUsage().get("cpu"));
-//        resourceMap.put("memory", nodeMetrics.getUsage().get("memory"));
-
-        return resourceMap;
+        return commonService.setResultObject(responseMap, NodeMetrics.class);
     }
 
-    public Map<String, Object> getResourcePod(Params params) {
-        System.out.println("podName : " + params.getPodName());
-        Map<String, Object> resourceMap = new HashMap<>();
-
+    public PodMetrics getResourcePod(Params params) {
         HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiMetricsPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
-        System.out.println("pod responseMap : " + responseMap);
-
-        PodsMetrics podMetrics = commonService.setResultObject(responseMap, PodsMetrics.class);
-        System.out.println("pod podMetrics : " + podMetrics);
-
-        resourceMap.put("cpu", generatePodsUsageMapWithUnit(Constants.CPU, podMetrics));
-        resourceMap.put("memory", generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics));
-
-        return resourceMap;
+        return commonService.setResultObject(responseMap, PodMetrics.class);
     }
 
     public Integer getAppStatus() {
         Integer appStatus = 1;
+
+
+
+
         return appStatus;
     }
 
@@ -219,15 +205,29 @@ public class SchedulerService {
     }
 
     /**
+     * Pods 사용량 Map 반환 (Return Map for Pods Usage)
+     *
+     * @param type the type
+     * @param podsMetrics   the podsMetricsItems
+     * @return the Map<String, String>
+     */
+    public Map<String, Object> generatePodsUsageMapWithUnit(String type, PodMetrics podsMetrics) {
+        String unit = (type.equals(Constants.CPU)) ? Constants.CPU_UNIT : Constants.MEMORY_UNIT;
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.USAGE, convertUsageUnit(type, podMetricSum(podsMetrics, type)) + unit);
+        return result;
+    }
+
+    /**
      * Pods 내 ContainerMetrics 합계 (Sum Container Metrics in Pods)
      *
-     * @param podsMetrics the podsMetrics
+     * @param podMetrics the podMetrics
      * @param type             the type
      * @return the double
      */
-    public static double podMetricSum(PodsMetrics podsMetrics, String type) {
+    public static double podMetricSum(PodMetrics podMetrics, String type) {
         double sum = 0;
-        for (ContainerMetrics containerMetrics : podsMetrics.getContainers()) {
+        for (ContainerMetrics containerMetrics : podMetrics.getContainers()) {
             Quantity value = containerMetrics.getUsage().get(type);
             if (value != null) {
                 sum += value.getNumber().doubleValue();
@@ -236,17 +236,4 @@ public class SchedulerService {
         return sum;
     }
 
-    /**
-     * Pods 사용량 Map 반환 (Return Map for Pods Usage)
-     *
-     * @param type the type
-     * @param podsMetrics   the podsMetricsItems
-     * @return the Map<String, String>
-     */
-    public Map<String, Object> generatePodsUsageMapWithUnit(String type, PodsMetrics podsMetrics) {
-        String unit = (type.equals(Constants.CPU)) ? Constants.CPU_UNIT : Constants.MEMORY_UNIT;
-        Map<String, Object> result = new HashMap<>();
-        result.put(Constants.USAGE, convertUsageUnit(type, podMetricSum(podsMetrics, type)) + unit);
-        return result;
-    }
 }
