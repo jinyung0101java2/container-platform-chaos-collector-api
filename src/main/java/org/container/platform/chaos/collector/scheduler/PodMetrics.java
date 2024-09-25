@@ -16,7 +16,7 @@ import java.util.Map;
  * @since 2024-09-24
  */
 @Data
-public class PodsMetrics {
+public class PodMetrics {
 
     private String name;
     private String namespace;
