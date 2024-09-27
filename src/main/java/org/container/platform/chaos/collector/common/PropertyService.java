@@ -4,8 +4,6 @@ import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
 /**
  * PropertyService 클래스
  *
@@ -36,5 +34,10 @@ public class PropertyService {
 
     @Value("${cpMaster.api.metrics.pod.get}")
     private String cpMasterApiMetricsPodsGetUrl;
+
+    //pod
+    @Value("${cpMaster.api.list.pods.get}")
+    private String cpMasterApiListPodsGetUrl;
+
 
 }

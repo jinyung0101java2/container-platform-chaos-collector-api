@@ -1,18 +1,18 @@
 package org.container.platform.chaos.collector.scheduler;
 
 import lombok.RequiredArgsConstructor;
-import org.container.platform.chaos.collector.common.CommonService;
-import org.container.platform.chaos.collector.common.Constants;
-import org.container.platform.chaos.collector.common.PropertyService;
-import org.container.platform.chaos.collector.common.RestTemplateService;
+import org.container.platform.chaos.collector.common.*;
 import org.container.platform.chaos.collector.common.model.ChaosResourcesList;
 import org.container.platform.chaos.collector.common.model.Params;
 import org.container.platform.chaos.collector.common.model.ResultStatus;
 import org.container.platform.chaos.collector.scheduler.custom.BaseExponent;
 import org.container.platform.chaos.collector.scheduler.custom.Quantity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -24,7 +24,6 @@ import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import static org.container.platform.chaos.collector.scheduler.custom.SuffixBase.suffixToBinary;
 import static org.container.platform.chaos.collector.scheduler.custom.SuffixBase.suffixToDecimal;
 
@@ -48,7 +47,6 @@ public class SchedulerService {
     private final CommonService commonService;
 
     private final PropertyService propertyService;
-
 
 
     public ChaosResourcesList getChaosResource(Params params) {
@@ -91,7 +89,7 @@ public class SchedulerService {
         LocalDateTime now = LocalDateTime.parse(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
         String chaosId = String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId());
 
-        if (now.isAfter(startTime) || now.isEqual(startTime) && now.isBefore(endTime) || now.isEqual(endTime)) {
+        if ((now.isAfter(startTime) || now.isEqual(startTime)) && (now.isBefore(endTime) || now.isEqual(endTime))) {
             System.out.println("실행 중 " + chaosId + " " + scheduledFutures.get(chaosId).hashCode() + " 시작: " + startTime + " 현재: " +  now + " 끝: " + endTime);
 
           List<ChaosResourceUsage> chaosResourceUsages = new ArrayList<>();
@@ -122,7 +120,7 @@ public class SchedulerService {
                                 .chaosResourceUsageId(chaosResourceUsageId)
                                 .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics).values().toString())
                                 .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics).values().toString())
-                                .appStatus(getAppStatus())
+                                .appStatus(getAppStatus(params))
                                 .build();
                         chaosResourceUsages.add(chaosResourceUsage);
                     }else {
@@ -174,11 +172,21 @@ public class SchedulerService {
         return commonService.setResultObject(responseMap, PodMetrics.class);
     }
 
-    public Integer getAppStatus() {
+    public Integer getAppStatus(Params params) {
         Integer appStatus = 1;
 
+        HashMap responsePodMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
+                propertyService.getCpMasterApiListPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
+        System.out.println("responsePodMap : " + responsePodMap);
+        Pod pod = commonService.setResultObject(responsePodMap, Pod.class);
 
+        // http://{podName}.{ip}.{namespace}.pod.cluster.local
+        String podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local", pod.getName(), pod.getPodIp().replace(".", "-"), pod.getNamespace());
+        System.out.println("podDnsUrl : " + podDnsUrl);
 
+        HashMap responsePodDnsMap = (HashMap) restTemplateService.sendDns(Constants.TARGET_CP_POD_DNS, podDnsUrl, HttpMethod.GET, null, Map.class, params);
+
+        System.out.println("responsePodDnsMap : " + responsePodDnsMap);
 
         return appStatus;
     }
