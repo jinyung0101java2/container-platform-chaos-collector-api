@@ -89,7 +89,7 @@ public class RestTemplateService {
     }
 
     public <T> T sendDns(String reqApi, String reqUrl, HttpMethod httpMethod, Object bodyObject, Class<T> responseType, Params params) {
-        return sendDns(reqApi, reqUrl, httpMethod, bodyObject, responseType, Constants.ACCEPT_TYPE_JSON, MediaType.APPLICATION_JSON_VALUE, params);
+        return sendDns(reqApi, reqUrl, httpMethod, bodyObject, responseType, Constants.ACCEPT_TYPE_TEXTHTML, MediaType.TEXT_HTML_VALUE, params);
     }
 
     @TrackExecutionTime
