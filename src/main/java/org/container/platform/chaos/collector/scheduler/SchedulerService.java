@@ -184,9 +184,10 @@ public class SchedulerService {
         String podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local", pod.getName(), pod.getPodIp().replace(".", "-"), pod.getNamespace());
         System.out.println("podDnsUrl : " + podDnsUrl);
 
-        HashMap responsePodDnsMap = (HashMap) restTemplateService.sendDns(Constants.TARGET_CP_POD_DNS, podDnsUrl, HttpMethod.GET, null, Map.class, params);
+        String responsePodDnsMap = restTemplateService.sendDns(Constants.TARGET_CP_POD_DNS, podDnsUrl, HttpMethod.GET, null, String.class, params);
 
         System.out.println("responsePodDnsMap : " + responsePodDnsMap);
+
 
         return appStatus;
     }

@@ -28,6 +28,7 @@ public class Constants {
     static final String STRING_DATE_TYPE = "yyyy-MM-dd HH:mm:ss";
     static final String STRING_ORIGINAL_DATE_TYPE = "yyyy-MM-dd'T'HH:mm:ss'Z'";
     static final String ACCEPT_TYPE_JSON = MediaType.APPLICATION_JSON_VALUE;
+    static final String ACCEPT_TYPE_TEXTHTML = MediaType.TEXT_HTML_VALUE;
 
     //cluster
     public static final String RESOURCE_NAMESPACE = "Namespace";
