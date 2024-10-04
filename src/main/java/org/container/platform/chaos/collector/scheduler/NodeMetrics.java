@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import org.container.platform.chaos.collector.common.CommonUtils;
 import org.container.platform.chaos.collector.common.model.CommonMetaData;
+import org.container.platform.chaos.collector.common.model.CommonStatus;
 import org.container.platform.chaos.collector.scheduler.custom.Quantity;
 
 import java.util.Map;
@@ -29,6 +30,8 @@ public class NodeMetrics {
     @JsonIgnore
     private CommonMetaData metadata;
 
+    @JsonIgnore
+    private CommonStatus status;
 
     public String getName() {
         return CommonUtils.procReplaceNullValue(metadata.getName());

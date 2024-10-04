@@ -4,6 +4,8 @@ import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 /**
  * PropertyService 클래스
  *
@@ -20,6 +22,12 @@ public class PropertyService {
 
     @Value("${vault.path.cluster-token}")
     private String vaultClusterTokenPath;
+
+    @Value("${cpAnnotations.configuration}")
+    List<String> cpAnnotationsConfiguration;
+
+    @Value("${cpAnnotations.last-applied}")
+    String cpAnnotationsLastApplied;
 
 
     // metrics api
