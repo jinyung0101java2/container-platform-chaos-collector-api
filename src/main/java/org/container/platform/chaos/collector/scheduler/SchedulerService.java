@@ -2,17 +2,12 @@ package org.container.platform.chaos.collector.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import org.container.platform.chaos.collector.common.*;
-import org.container.platform.chaos.collector.common.model.ChaosResourcesList;
-import org.container.platform.chaos.collector.common.model.Params;
-import org.container.platform.chaos.collector.common.model.ResultStatus;
+import org.container.platform.chaos.collector.common.model.*;
 import org.container.platform.chaos.collector.scheduler.custom.BaseExponent;
 import org.container.platform.chaos.collector.scheduler.custom.Quantity;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -47,6 +42,8 @@ public class SchedulerService {
     private final CommonService commonService;
 
     private final PropertyService propertyService;
+    private static final String STATUS_FIELD_NAME = "status";
+
 
 
     public ChaosResourcesList getChaosResource(Params params) {
@@ -57,7 +54,6 @@ public class SchedulerService {
         ChaosResourcesList chaosResourcesList = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
                 "/chaos/chaosResourcesList?" + queryParams, HttpMethod.GET, null, ChaosResourcesList.class, params);
 
-        System.out.println("chaosResourcesList : " + chaosResourcesList);
         addSchedule(chaosResourcesList, params);
 
         return (ChaosResourcesList) commonService.setResultModel(chaosResourcesList, Constants.RESULT_STATUS_SUCCESS);
@@ -82,7 +78,6 @@ public class SchedulerService {
             scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, endTime, params),  3600000);
         }
         scheduledFutures.put(String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId()), scheduledFuture);
-        System.out.println("scheduledFutures : " + scheduledFutures.keySet());
     }
 
     public void executeSchedule(ChaosResourcesList chaosResourcesList, LocalDateTime startTime, LocalDateTime endTime, Params params) {
@@ -90,7 +85,6 @@ public class SchedulerService {
         String chaosId = String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId());
 
         if ((now.isAfter(startTime) || now.isEqual(startTime)) && (now.isBefore(endTime) || now.isEqual(endTime))) {
-            System.out.println("실행 중 " + chaosId + " " + scheduledFutures.get(chaosId).hashCode() + " 시작: " + startTime + " 현재: " +  now + " 끝: " + endTime);
 
           List<ChaosResourceUsage> chaosResourceUsages = new ArrayList<>();
             for(int i = 0; i < chaosResourcesList.getItems().size(); i++) {
@@ -106,8 +100,8 @@ public class SchedulerService {
 
                     ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
                             .chaosResourceUsageId(chaosResourceUsageId)
-                            .cpu(String.valueOf(convertUsageUnit(Constants.CPU_UNIT, nodeMetrics.getUsage().get("cpu").getNumber().doubleValue())))
-                            .memory(String.valueOf(convertUsageUnit(Constants.MEMORY, nodeMetrics.getUsage().get("memory").getNumber().doubleValue())))
+                            .cpu(generateNodeUsageMap(Constants.CPU, nodeMetrics))
+                            .memory(generateNodeUsageMap(Constants.MEMORY, nodeMetrics))
                             .build();
                     chaosResourceUsages.add(chaosResourceUsage);
 
@@ -118,23 +112,22 @@ public class SchedulerService {
                     if(chaosResourcesList.getItems().get(i).getChoice() == 1) {
                         ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
                                 .chaosResourceUsageId(chaosResourceUsageId)
-                                .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics).values().toString())
-                                .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics).values().toString())
+                                .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
+                                .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
                                 .appStatus(getAppStatus(params))
                                 .build();
                         chaosResourceUsages.add(chaosResourceUsage);
                     }else {
                         ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
                                 .chaosResourceUsageId(chaosResourceUsageId)
-                                .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics).values().toString())
-                                .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics).values().toString())
+                                .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
+                                .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
                                 .build();
                         chaosResourceUsages.add(chaosResourceUsage);
                     }
                 }
             }
 
-            System.out.println("chaosResourceUsages : " + chaosResourceUsages);
             ChaosResourceUsageList chaosResourceUsageList = ChaosResourceUsageList.builder()
                     .items(chaosResourceUsages)
                     .build();
@@ -148,15 +141,10 @@ public class SchedulerService {
 
 
         } else if (now.isAfter(endTime)) {
-            System.out.println("실행 끝 " + chaosId + " " + scheduledFutures.get(chaosId).hashCode() + " 시작: " + startTime + " 현재: " +  LocalDateTime.now() + " 끝: " + endTime);
-            if (scheduledFuture != null && !scheduledFuture.isCancelled()) {
+            if (scheduledFuture != null && !scheduledFutures.get(chaosId).isCancelled()) {
                 scheduledFutures.get(chaosId).cancel(true);
-                System.out.println("해쉬코드 : " + scheduledFutures.get(chaosId).hashCode() + " cancel? " + scheduledFutures.get(chaosId).isCancelled());
                 scheduledFutures.remove(chaosId);
-                System.out.println("잔여 scheduledFutures : " + scheduledFutures.keySet());
             }
-        } else {
-            System.out.println("시간 외 " + chaosId + " 시작: " + startTime + " 현재: " +  now + " 끝: " + endTime);
         }
     }
 
@@ -174,22 +162,65 @@ public class SchedulerService {
 
     public Integer getAppStatus(Params params) {
         Integer appStatus = 1;
-
         HashMap responsePodMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiListPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
-        System.out.println("responsePodMap : " + responsePodMap);
-        Pod pod = commonService.setResultObject(responsePodMap, Pod.class);
+        Pods pods = commonService.setResultObject(responsePodMap, Pods.class);
+        String httpPort = null;
 
-        // http://{podName}.{ip}.{namespace}.pod.cluster.local
-        String podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local", pod.getName(), pod.getPodIp().replace(".", "-"), pod.getNamespace());
-        System.out.println("podDnsUrl : " + podDnsUrl);
+        for(CommonContainer container : pods.getSpec().getContainers()){
+            if(container.getPorts() != null){
+                for(CommonPort port : container.getPorts() ) {
+                    if(port.getName().equals("http") || port.getName().equals("https")){
+                        httpPort = port.getContainerPort();
+                    }
+                }
+            }
 
-        String responsePodDnsMap = restTemplateService.sendDns(Constants.TARGET_CP_POD_DNS, podDnsUrl, HttpMethod.GET, null, String.class, params);
+        }
+        String podDnsUrl;
 
-        System.out.println("responsePodDnsMap : " + responsePodDnsMap);
+        if (httpPort != null && !httpPort.isEmpty()) {
+            podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local:%s", pods.getName(), pods.getIp().replace(".", "-"), pods.getNamespace(), httpPort);
+        }else{
+            podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local", pods.getName(), pods.getIp().replace(".", "-"), pods.getNamespace());
+        }
 
+        Integer responsePodDns = restTemplateService.sendDns(Constants.TARGET_CP_POD_DNS, podDnsUrl, HttpMethod.GET, null, params);
+        if(responsePodDns == null){
+            responsePodDns = 0;
+        }
 
         return appStatus;
+    }
+
+    /**
+     * Pods 상세 조회(Get Pods Detail)
+     *
+     * @param params the params
+     * @return the pods detail
+     */
+    public Pods getPods(Params params) {
+        HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
+                propertyService.getCpMasterApiListPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
+
+        PodsStatus status = commonService.setResultObject(responseMap.get(STATUS_FIELD_NAME), PodsStatus.class);
+
+        if(status.getContainerStatuses() == null) {
+            List<ContainerStatusesItem> list = new ArrayList<>();
+            ContainerStatusesItem item = new ContainerStatusesItem();
+            item.setRestartCount(0);
+
+            list.add(item);
+            status.setContainerStatuses(list);
+        }
+
+        responseMap.put(STATUS_FIELD_NAME, status);
+
+        Pods pods = commonService.setResultObject(responseMap, Pods.class);
+        pods = commonService.annotationsProcessing(pods, Pods.class);
+
+        return (Pods) commonService.setResultModel(pods, Constants.RESULT_STATUS_SUCCESS);
+
     }
 
     /**
@@ -220,11 +251,10 @@ public class SchedulerService {
      * @param podsMetrics   the podsMetricsItems
      * @return the Map<String, String>
      */
-    public Map<String, Object> generatePodsUsageMapWithUnit(String type, PodMetrics podsMetrics) {
+    public String generatePodsUsageMapWithUnit(String type, PodMetrics podsMetrics) {
         String unit = (type.equals(Constants.CPU)) ? Constants.CPU_UNIT : Constants.MEMORY_UNIT;
-        Map<String, Object> result = new HashMap<>();
-        result.put(Constants.USAGE, convertUsageUnit(type, podMetricSum(podsMetrics, type)) + unit);
-        return result;
+
+         return convertUsageUnit(type, podMetricSum(podsMetrics, type)) + unit;
     }
 
     /**
@@ -244,5 +274,44 @@ public class SchedulerService {
         }
         return sum;
     }
+
+    /**
+     * Nodes 사용량 Map 반환 (Return Map for Nodes Usage)
+     *
+     * @param type the type
+     * @param node the nodesListItem
+     * @return the Map<String, String>
+     */
+    public String generateNodeUsageMap(String type, NodeMetrics node) {
+        String unit = (type.equals(Constants.CPU)) ? Constants.CPU_UNIT : Constants.MEMORY_UNIT;
+        return convertUsageUnit(type, node.getUsage().get(type).getNumber().doubleValue()) + unit;
+    }
+
+    /**
+     * Nodes 사용량 Percent 계산 (Get Nodes Usage Percent)
+     *
+     * @param node the nodesListItem
+     * @param type the type
+     * @return the double
+     */
+    public double findNodePercentage(NodeMetrics node, String type) {
+        Quantity capacity = node.getStatus().getAllocatable().get(type);
+        Quantity usage = node.getUsage().get(type);
+        if (capacity == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return usage.getNumber().doubleValue() / capacity.getNumber().doubleValue();
+    }
+
+    /**
+     * Percent String 포맷 (Percent String format)
+     *
+     * @param value the value
+     * @return the String
+     */
+    public long convertPercnUnit(double value) {
+        return Math.round(value * 100);
+    }
+
 
 }

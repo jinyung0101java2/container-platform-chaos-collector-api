@@ -2,7 +2,10 @@ package org.container.platform.chaos.collector.common;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
+import lombok.SneakyThrows;
 import org.container.platform.chaos.collector.clusters.clusters.Clusters;
+import org.container.platform.chaos.collector.common.model.CommonAnnotations;
+import org.container.platform.chaos.collector.common.model.CommonMetaData;
 import org.container.platform.chaos.collector.common.model.CommonStatusCode;
 import org.container.platform.chaos.collector.common.model.Params;
 import org.container.platform.chaos.collector.login.support.PortalGrantedAuthority;
@@ -12,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
+
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
@@ -29,15 +34,19 @@ public class CommonService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonService.class);
     private final Gson gson;
+    private final PropertyService propertyService;
+
 
     /**
      * Instantiates a new Common service
      *
-     * @param gson the gson
+     * @param gson            the gson
+     * @param propertyService
      */
     @Autowired
-    public CommonService(Gson gson) {
+    public CommonService(Gson gson, PropertyService propertyService) {
         this.gson = gson;
+        this.propertyService = propertyService;
     }
 
     /**
@@ -111,6 +120,92 @@ public class CommonService {
     private <T> T fromJson(String requestString, Class<T> requestClass) {
         return gson.fromJson(requestString, requestClass);
     }
+
+    /**
+     * 필드를 조회하고, 그 값을 반환 처리(check the field and return the result)
+     *
+     * @param fieldName the fieldName
+     * @param obj       the obj
+     * @return the t
+     */
+    @SneakyThrows
+    public <T> T getField(String fieldName, Object obj) {
+        Field field = obj.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        Object result = field.get(obj);
+        field.setAccessible(false);
+        return (T) result;
+    }
+
+    /**
+     * 필드를 조회하고, 그 값을 저장 처리(check the field and save the result)
+     *
+     * @param fieldName the fieldName
+     * @param obj       the obj
+     * @param value     the value
+     * @return the object
+     */
+    @SneakyThrows
+    public Object setField(String fieldName, Object obj, Object value) {
+        Field field = obj.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(obj, value);
+        field.setAccessible(false);
+        return obj;
+    }
+
+
+    /**
+     * Annotations checkY/N 처리 (Resource Annotation Check y/n Processing)
+     *
+     * @param resourceDetails the resource Details
+     * @param requestClass    the requestClass
+     * @return the ArrayList
+     */
+    public <T> T annotationsProcessing(Object resourceDetails, Class<T> requestClass) {
+
+        Object returnObj = null;
+
+        CommonMetaData commonMetaData = getField(Constants.RESOURCE_METADATA, resourceDetails);
+        Map<String, String> annotations = getField(Constants.RESOURCE_ANNOTATIONS, commonMetaData);
+
+        // new annotaions list
+        List<CommonAnnotations> commonAnnotationsList = new ArrayList<>();
+
+        if (annotations != null) {
+            for (String key : annotations.keySet()) {
+                CommonAnnotations commonAnnotations = new CommonAnnotations();
+                commonAnnotations.setCheckYn(Constants.CHECK_N);
+
+                for (String configAnnotations : propertyService.getCpAnnotationsConfiguration()) {
+                    // if exists kube-annotations
+                    if (key.startsWith(configAnnotations)) {
+                        commonAnnotations.setCheckYn(Constants.CHECK_Y);
+                    }
+                }
+
+                if(key.contains(propertyService.getCpAnnotationsLastApplied())) {
+                    commonAnnotations.setCheckYn(Constants.CHECK_Y);
+                }
+
+                commonAnnotations.setKey(key);
+                commonAnnotations.setValue(annotations.get(key));
+
+                commonAnnotationsList.add(commonAnnotations);
+            }
+        } else {
+            CommonAnnotations emptyCommonAnnotations = new CommonAnnotations();
+            emptyCommonAnnotations.setCheckYn(Constants.NULL_REPLACE_TEXT);
+            emptyCommonAnnotations.setKey(Constants.NULL_REPLACE_TEXT);
+            emptyCommonAnnotations.setValue(Constants.NULL_REPLACE_TEXT);
+            commonAnnotationsList.add(emptyCommonAnnotations);
+        }
+
+        returnObj = setField(Constants.RESOURCE_ANNOTATIONS, resourceDetails, commonAnnotationsList);
+
+        return (T) returnObj;
+    }
+
 
     /**
      * 컨텍스트에서 권한 읽어오기(Read authority from SecurityContext)

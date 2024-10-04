@@ -3,6 +3,7 @@ package org.container.platform.chaos.collector.common.model;
 import com.google.gson.annotations.SerializedName;
 import lombok.Data;
 import lombok.experimental.Accessors;
+import org.container.platform.chaos.collector.common.CommonUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -35,5 +36,18 @@ public class CommonMetaData {
     @Accessors(prefix = "_")
     @SerializedName("continue")
     private String _continue;
-    
+
+    public List<CommonOwnerReferences> getOwnerReferences() {
+        if(ownerReferences == null) {ownerReferences = null;}
+        return ownerReferences;
+    }
+
+
+    public String getCreationTimestamp() {
+        return CommonUtils.procSetTimestamp(creationTimestamp);
+    }
+
+    public String getDeletionTimestamp() {
+        return CommonUtils.procSetTimestamp(deletionTimestamp);
+    }
 }

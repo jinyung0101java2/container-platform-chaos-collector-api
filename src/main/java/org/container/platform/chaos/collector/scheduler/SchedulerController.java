@@ -52,10 +52,6 @@ public class SchedulerController {
     @ApiImplicitParams({ @ApiImplicitParam(name = "params", value = "request parameters", required = true, dataTypeClass = ChaosCollector.class, paramType = "body")})
     @PostMapping
     public ResultStatus setScheduler(@RequestBody Params params) {
-        System.out.println("resultList : " + params.getStressChaosResourceIds());
-        System.out.println("namespace : " + params.getNamespace());  //  Namespace in choas selector
-        System.out.println("chaosName : " + params.getChaosNamespace()); // origin Namespace
-
         ChaosResourcesList resultStatus = schedulerService.getChaosResource(params);
         return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
 

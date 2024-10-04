@@ -2,6 +2,9 @@ package org.container.platform.chaos.collector.common;
 
 import org.springframework.http.MediaType;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Constants 클래스
  *
@@ -13,6 +16,8 @@ public class Constants {
 
     public static final String RESULT_STATUS_SUCCESS = "SUCCESS";
     public static final String RESULT_STATUS_FAIL = "FAIL";
+    public static final String CHECK_Y = "Y";
+    public static final String CHECK_N = "N";
     public static final String EMPTY_STRING ="";
     public static final String TARGET_CP_MASTER_API = "cpMasterApi/{cluster}";
     public static final String TARGET_COMMON_API = "commonApi";
@@ -27,6 +32,8 @@ public class Constants {
 
     static final String STRING_DATE_TYPE = "yyyy-MM-dd HH:mm:ss";
     static final String STRING_ORIGINAL_DATE_TYPE = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+    static final String STRING_TIME_ZONE_ID = "Asia/Seoul";
+
     static final String ACCEPT_TYPE_JSON = MediaType.APPLICATION_JSON_VALUE;
     static final String ACCEPT_TYPE_TEXTHTML = MediaType.TEXT_HTML_VALUE;
 
@@ -63,6 +70,20 @@ public class Constants {
     public static final String CPU_UNIT = "m";
     public static final String MEMORY_UNIT = "Mi";
 
+    public static final String CONTAINER_STATE_WAITING = "waiting";
+    public static final String CONTAINER_STATE_TERMINATED = "terminated";
+
+
+
     public static final String USAGE = "usage";
+    public static final String PERCENT = "percent";
+
+
+    public static final String RESOURCE_METADATA = "metadata";
+    public static final String RESOURCE_ANNOTATIONS = "annotations";
+
+
+    public static final Map<String, Object> INIT_USAGE = new HashMap<String, Object>() {{ put(USAGE, NULL_REPLACE_TEXT); }};
+
 
 }

@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.container.platform.chaos.collector.common.Constants.TARGET_COMMON_API;
 
@@ -88,9 +89,10 @@ public class RestTemplateService {
         return sendAdmin(reqApi, reqUrl, httpMethod, bodyObject, responseType, Constants.ACCEPT_TYPE_JSON, MediaType.APPLICATION_JSON_VALUE, params);
     }
 
-    public <T> T sendDns(String reqApi, String reqUrl, HttpMethod httpMethod, Object bodyObject, Class<T> responseType, Params params) {
-        return sendDns(reqApi, reqUrl, httpMethod, bodyObject, responseType, Constants.ACCEPT_TYPE_TEXTHTML, MediaType.TEXT_HTML_VALUE, params);
+    public <T> T sendDns(String reqApi, String reqUrl, HttpMethod httpMethod, Object bodyObject, Params params) {
+        return sendDns(reqApi, reqUrl, httpMethod, bodyObject, Constants.ACCEPT_TYPE_JSON, MediaType.TEXT_HTML_VALUE, params);
     }
+
 
     @TrackExecutionTime
     public <T> T sendGlobal(String reqApi, String reqUrl, HttpMethod httpMethod, Object bodyObject, Class<T> responseType, Params params) {
@@ -165,7 +167,7 @@ public class RestTemplateService {
      * @param contentType  the content type
      * @return the t
      */
-    public <T> T sendDns(String reqApi, String reqUrl, HttpMethod httpMethod, Object bodyObject, Class<T> responseType, String acceptType, String contentType, Params params) {
+    public <T> T sendDns(String reqApi, String reqUrl, HttpMethod httpMethod, Object bodyObject, String acceptType, String contentType, Params params) {
         setApiUrlAuthorization(reqApi, params);
 
         HttpHeaders reqHeaders = new HttpHeaders();
@@ -183,25 +185,28 @@ public class RestTemplateService {
         LOGGER.info("<T> T SEND :: REQUEST: {} BASE-URL: {}, CONTENT-TYPE: {}", CommonUtils.loggerReplace(httpMethod), CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(reqHeaders.get(CONTENT_TYPE)));
 
         ResponseEntity<T> resEntity = null;
+        long startTime = System.currentTimeMillis();
+
         try {
-            resEntity = restTemplate.exchange(reqUrl, httpMethod, reqEntity, responseType);
+            resEntity = (ResponseEntity<T>) restTemplate.exchange(reqUrl, httpMethod, reqEntity, String.class);
         } catch (HttpStatusCodeException exception) {
             LOGGER.info("HttpStatusCodeException API Call URL : {}, errorCode : {}, errorMessage : {}", CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(exception.getRawStatusCode()), CommonUtils.loggerReplace(exception.getMessage()));
-            throw new CommonStatusCodeException(Integer.toString(exception.getRawStatusCode()));
+            resEntity = (ResponseEntity<T>) ResponseEntity.status(exception.getRawStatusCode()).body("Error response");
+        }catch (Exception e) {
+            LOGGER.error("Unexpected error occurred API Call URL : {}, errorMessage : {}", CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(e.getMessage()));
+            resEntity = (ResponseEntity<T>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
         }
 
-        if (resEntity.getBody() != null) {
-            LOGGER.info("RESPONSE-TYPE: {}", CommonUtils.loggerReplace(resEntity.getBody().getClass()));
-            return statusCodeDiscriminate(reqApi, resEntity, httpMethod);
+        long elapsedTime = System.currentTimeMillis() - startTime;
 
+        if (elapsedTime <= TimeUnit.SECONDS.toMillis(1)) {
+            LOGGER.info("Response received within 1 second: {}", resEntity);
+            return (T) Integer.valueOf(1);
         } else {
-            LOGGER.error("RESPONSE-TYPE: RESPONSE BODY IS NULL");
+            LOGGER.error("Response took longer than 1 second: {}", elapsedTime);
+            return (T) Integer.valueOf(0);
         }
-
-        return resEntity.getBody();
     }
-
-
     /**
      * t 전송(Send t)
      * <p></p>

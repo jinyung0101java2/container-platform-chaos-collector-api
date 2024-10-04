@@ -1,6 +1,10 @@
 package org.container.platform.chaos.collector.scheduler;
 
 import lombok.Data;
+import org.container.platform.chaos.collector.common.model.CommonCondition;
+import org.container.platform.chaos.collector.common.model.ContainerStatusesItem;
+
+import java.util.List;
 
 /**
  * PodsStatus 클래스
@@ -11,6 +15,14 @@ import lombok.Data;
  */
 @Data
 public class PodsStatus {
+    private String phase;
+    private List<CommonCondition> conditions;
     private String hostIP;
     private String podIP;
+    private List podIPs;
+    private String startTime;
+    private List<ContainerStatusesItem> containerStatuses;
+    private String qosClass;
+    private String reason;
+    private String message;
 }

@@ -48,6 +48,9 @@ vault:
 aspect:
   enabled: false # for checking Elapsed time
 
+cpAnnotations:
+  configuration: kubectl.kubernetes.io/, kubernetes.io/, k8s.io/
+  last-applied: last-applied
 
 cpMaster:
   api:
