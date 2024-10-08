@@ -9,6 +9,7 @@ package org.container.platform.chaos.collector.common;
  */
 public enum MessageConstant {
 
+    FAIL_REGISTER_SCHEDULE("Chaos는 생성 되었으나, 매트릭 서비스가 등록되지 않았습니다.", "Chaos is created, but the matrix service is not registered."),
     CODE_ERROR("요청 사항에 오류가 발생하였습니다. 관리자에게 문의하세요.","The request has failed. Contact your administrator."),
     REQUEST_VALUE_IS_MISSING("필수사항이 누락되었습니다.","Requirements are missing.");
     private String ko_msg;

@@ -3,8 +3,12 @@ package org.container.platform.chaos.collector.scheduler;
 import lombok.RequiredArgsConstructor;
 import org.container.platform.chaos.collector.common.*;
 import org.container.platform.chaos.collector.common.model.*;
+import org.container.platform.chaos.collector.exception.CommonStatusCodeException;
+import org.container.platform.chaos.collector.exception.ResultStatusException;
 import org.container.platform.chaos.collector.scheduler.custom.BaseExponent;
 import org.container.platform.chaos.collector.scheduler.custom.Quantity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
@@ -44,9 +48,11 @@ public class SchedulerService {
     private final PropertyService propertyService;
     private static final String STATUS_FIELD_NAME = "status";
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SchedulerService.class);
 
 
-    public ChaosResourcesList getChaosResource(Params params) {
+
+    public ResultStatus getChaosResource(Params params) {
         List<Long> resourceIds = params.getStressChaosResourceIds();
         String queryParams = resourceIds.stream()
                 .map(resourceId -> "resourceId=" + resourceId)
@@ -54,27 +60,23 @@ public class SchedulerService {
         ChaosResourcesList chaosResourcesList = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
                 "/chaos/chaosResourcesList?" + queryParams, HttpMethod.GET, null, ChaosResourcesList.class, params);
 
-        addSchedule(chaosResourcesList, params);
-
-        return (ChaosResourcesList) commonService.setResultModel(chaosResourcesList, Constants.RESULT_STATUS_SUCCESS);
+        try{
+            addSchedule(chaosResourcesList, params);
+        } catch (Exception e) {
+            return (ResultStatus) commonService.setResultModel(chaosResourcesList, Constants.RESULT_STATUS_FAIL);
+        }
+        return (ResultStatus) commonService.setResultModel(chaosResourcesList, Constants.RESULT_STATUS_SUCCESS);
     }
 
     public void addSchedule(ChaosResourcesList chaosResourcesList, Params params) {
         LocalDateTime startTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getCreationTime()), ZoneId.systemDefault());
         LocalDateTime endTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getEndTime()), ZoneId.systemDefault());
-        String duration = chaosResourcesList.getItems().get(0).getStressChaos().getDuration();
-        Pattern pattern = Pattern.compile("^(\\d+)([smh]|ms)$");
-        Matcher matcher = pattern.matcher(duration);
-        int time = 0;
-        String unit = "";
-        if (matcher.matches()) {
-            time = Integer.parseInt(matcher.group(1));
-            unit = matcher.group(2);
-        }
+        Duration duration = Duration.between(startTime, endTime);
+        long durationInMillis = duration.toMillis();
 
-        if((unit.equals("ms") && time >= 60000 && time < 3600000) || (unit.equals("s") && time >= 60 && time < 3600) || (unit.equals("m") && time >= 1 && time < 60)){
+        if(durationInMillis < 3600000){
             scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, endTime, params),  60000);
-        }else if((unit.equals("ms") && time >= 3600000) || (unit.equals("s") && time >= 3600) || (unit.equals("m") && time >= 60) || (unit.equals("h"))){
+        }else{
             scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, endTime, params),  3600000);
         }
         scheduledFutures.put(String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId()), scheduledFuture);
@@ -132,13 +134,12 @@ public class SchedulerService {
                     .items(chaosResourceUsages)
                     .build();
 
-            ResultStatus resultChaosResourceUsageList= restTemplateService.send(Constants.TARGET_COMMON_API,
-                    "/chaos/chaosResourceUsageList", HttpMethod.POST, chaosResourceUsageList, ResultStatus.class, params);
-
-            ResultStatus resultStatus = (ResultStatus) commonService.setResultModel(resultChaosResourceUsageList, Constants.RESULT_STATUS_SUCCESS);
-            
-            // resultStatus 성공 실패 후 로직 처리
-
+            try{
+                restTemplateService.send(Constants.TARGET_COMMON_API,
+                        "/chaos/chaosResourceUsageList", HttpMethod.POST, chaosResourceUsageList, ChaosResourceUsageList.class, params);
+            } catch (Exception e){
+                LOGGER.info("Failed to register the collected chaos resource usage data to the DB.");
+            }
 
         } else if (now.isAfter(endTime)) {
             if (scheduledFuture != null && !scheduledFutures.get(chaosId).isCancelled()) {
@@ -161,7 +162,6 @@ public class SchedulerService {
     }
 
     public Integer getAppStatus(Params params) {
-        Integer appStatus = 1;
         HashMap responsePodMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiListPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
         Pods pods = commonService.setResultObject(responsePodMap, Pods.class);
@@ -190,7 +190,7 @@ public class SchedulerService {
             responsePodDns = 0;
         }
 
-        return appStatus;
+        return responsePodDns;
     }
 
     /**
