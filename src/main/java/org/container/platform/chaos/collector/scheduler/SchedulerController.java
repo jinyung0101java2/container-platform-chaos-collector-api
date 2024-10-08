@@ -52,8 +52,12 @@ public class SchedulerController {
     @ApiImplicitParams({ @ApiImplicitParam(name = "params", value = "request parameters", required = true, dataTypeClass = ChaosCollector.class, paramType = "body")})
     @PostMapping
     public ResultStatus setScheduler(@RequestBody Params params) {
-        ChaosResourcesList resultStatus = schedulerService.getChaosResource(params);
-        return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
+        ResultStatus resultStatus = schedulerService.getChaosResource(params);
 
+        if (!resultStatus.getResultCode().equals("SUCCESS")) {
+            return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_FAIL);
+        }
+
+        return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
     }
 }
