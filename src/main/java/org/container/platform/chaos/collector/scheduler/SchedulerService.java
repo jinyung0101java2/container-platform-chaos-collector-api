@@ -3,8 +3,6 @@ package org.container.platform.chaos.collector.scheduler;
 import lombok.RequiredArgsConstructor;
 import org.container.platform.chaos.collector.common.*;
 import org.container.platform.chaos.collector.common.model.*;
-import org.container.platform.chaos.collector.exception.CommonStatusCodeException;
-import org.container.platform.chaos.collector.exception.ResultStatusException;
 import org.container.platform.chaos.collector.scheduler.custom.BaseExponent;
 import org.container.platform.chaos.collector.scheduler.custom.Quantity;
 import org.slf4j.Logger;
@@ -20,8 +18,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import static org.container.platform.chaos.collector.scheduler.custom.SuffixBase.suffixToBinary;
 import static org.container.platform.chaos.collector.scheduler.custom.SuffixBase.suffixToDecimal;
@@ -70,30 +66,29 @@ public class SchedulerService {
 
     public void addSchedule(ChaosResourcesList chaosResourcesList, Params params) {
         LocalDateTime startTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getCreationTime()), ZoneId.systemDefault());
-        LocalDateTime endTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getEndTime()), ZoneId.systemDefault());
-        Duration duration = Duration.between(startTime, endTime);
-        long durationInMillis = duration.toMillis();
+//        LocalDateTime endTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getEndTime()), ZoneId.systemDefault());
+//        Duration duration = Duration.between(startTime, endTime);
+//        long durationInMillis = duration.toMillis();
 
-        if(durationInMillis < 3600000){
-            scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, endTime, params),  60000);
-        }else{
-            scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, endTime, params),  3600000);
-        }
+        scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, params),  10000);
         scheduledFutures.put(String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId()), scheduledFuture);
     }
 
-    public void executeSchedule(ChaosResourcesList chaosResourcesList, LocalDateTime startTime, LocalDateTime endTime, Params params) {
-        LocalDateTime now = LocalDateTime.parse(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+    public void executeSchedule(ChaosResourcesList chaosResourcesList, LocalDateTime startTime, Params params) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        LocalDateTime now = LocalDateTime.parse(LocalDateTime.now().format(formatter));
+        int adjustedTime = (now.getSecond() / 10) * 10;
+        LocalDateTime adjustedNow = LocalDateTime.parse(now.withSecond(adjustedTime).format(formatter));
         String chaosId = String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId());
 
-        if ((now.isAfter(startTime) || now.isEqual(startTime)) && (now.isBefore(endTime) || now.isEqual(endTime))) {
+        if ((now.isAfter(startTime) || now.isEqual(startTime)) && now.isBefore(startTime.plusMinutes(1))) {
 
           List<ChaosResourceUsage> chaosResourceUsages = new ArrayList<>();
             for(int i = 0; i < chaosResourcesList.getItems().size(); i++) {
 
                 ChaosResourceUsageId chaosResourceUsageId = ChaosResourceUsageId.builder()
                         .resourceId(chaosResourcesList.getItems().get(i).getResourceId())
-                        .measurementTime(String.valueOf(now))
+                        .measurementTime(String.valueOf(adjustedNow))
                         .build();
 
                 if(chaosResourcesList.getItems().get(i).getType().equals("node")){
@@ -141,7 +136,7 @@ public class SchedulerService {
                 LOGGER.info("Failed to register the collected chaos resource usage data to the DB.");
             }
 
-        } else if (now.isAfter(endTime)) {
+        } else if (now.isAfter(startTime.plusMinutes(1))) {
             if (scheduledFuture != null && !scheduledFutures.get(chaosId).isCancelled()) {
                 scheduledFutures.get(chaosId).cancel(true);
                 scheduledFutures.remove(chaosId);
@@ -254,7 +249,7 @@ public class SchedulerService {
     public String generatePodsUsageMapWithUnit(String type, PodMetrics podsMetrics) {
         String unit = (type.equals(Constants.CPU)) ? Constants.CPU_UNIT : Constants.MEMORY_UNIT;
 
-         return convertUsageUnit(type, podMetricSum(podsMetrics, type)) + unit;
+         return String.valueOf(convertUsageUnit(type, podMetricSum(podsMetrics, type)));
     }
 
     /**
@@ -284,7 +279,7 @@ public class SchedulerService {
      */
     public String generateNodeUsageMap(String type, NodeMetrics node) {
         String unit = (type.equals(Constants.CPU)) ? Constants.CPU_UNIT : Constants.MEMORY_UNIT;
-        return convertUsageUnit(type, node.getUsage().get(type).getNumber().doubleValue()) + unit;
+        return String.valueOf(convertUsageUnit(type, node.getUsage().get(type).getNumber().doubleValue()));
     }
 
     /**

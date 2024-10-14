@@ -162,7 +162,6 @@ public class RestTemplateService {
      * @param reqUrl       the req url
      * @param httpMethod   the http method
      * @param bodyObject   the body object
-     * @param responseType the response type
      * @param acceptType   the accept type
      * @param contentType  the content type
      * @return the t
