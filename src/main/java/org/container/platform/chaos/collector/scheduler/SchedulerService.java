@@ -76,9 +76,10 @@ public class SchedulerService {
 
     public void executeSchedule(ChaosResourcesList chaosResourcesList, LocalDateTime startTime, Params params) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-        LocalDateTime now = LocalDateTime.parse(LocalDateTime.now().format(formatter));
+        LocalDateTime now = LocalDateTime.now();
         int adjustedTime = (now.getSecond() / 10) * 10;
-        LocalDateTime adjustedNow = LocalDateTime.parse(now.withSecond(adjustedTime).format(formatter));
+        LocalDateTime adjustedNow = now.withSecond(adjustedTime);
+        String formatTime = adjustedNow.format(formatter);
         String chaosId = String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId());
 
         if ((now.isAfter(startTime) || now.isEqual(startTime)) && now.isBefore(startTime.plusMinutes(1))) {
@@ -88,7 +89,7 @@ public class SchedulerService {
 
                 ChaosResourceUsageId chaosResourceUsageId = ChaosResourceUsageId.builder()
                         .resourceId(chaosResourcesList.getItems().get(i).getResourceId())
-                        .measurementTime(String.valueOf(adjustedNow))
+                        .measurementTime(String.valueOf(formatTime))
                         .build();
 
                 if(chaosResourcesList.getItems().get(i).getType().equals("node")){
