@@ -14,7 +14,7 @@ import lombok.Data;
 @Builder
 public class ChaosResourceUsage {
     private ChaosResourceUsageId chaosResourceUsageId;
-    private String cpu;
-    private String memory;
+    private Long cpu;
+    private Long memory;
     private Integer appStatus;
 }
