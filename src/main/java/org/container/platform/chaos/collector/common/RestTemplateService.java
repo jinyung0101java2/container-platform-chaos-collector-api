@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.Base64Utils;
@@ -185,6 +186,11 @@ public class RestTemplateService {
 
         ResponseEntity<T> resEntity = null;
         long startTime = System.currentTimeMillis();
+//
+//        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
+//        requestFactory.setConnectTimeout(1000);
+//        requestFactory.setReadTimeout(1000);
+//        restTemplate.setRequestFactory(requestFactory);
 
         try {
             resEntity = (ResponseEntity<T>) restTemplate.exchange(reqUrl, httpMethod, reqEntity, String.class);

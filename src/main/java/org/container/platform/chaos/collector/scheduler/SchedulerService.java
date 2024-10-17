@@ -56,12 +56,14 @@ public class SchedulerService {
         ChaosResourcesList chaosResourcesList = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
                 "/chaos/chaosResourcesList?" + queryParams, HttpMethod.GET, null, ChaosResourcesList.class, params);
 
+        ResultStatus resultStatus = new ResultStatus();
+
         try{
             addSchedule(chaosResourcesList, params);
         } catch (Exception e) {
-            return (ResultStatus) commonService.setResultModel(chaosResourcesList, Constants.RESULT_STATUS_FAIL);
+            return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_FAIL);
         }
-        return (ResultStatus) commonService.setResultModel(chaosResourcesList, Constants.RESULT_STATUS_SUCCESS);
+        return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
     }
 
     public void addSchedule(ChaosResourcesList chaosResourcesList, Params params) {
@@ -89,7 +91,7 @@ public class SchedulerService {
 
                 ChaosResourceUsageId chaosResourceUsageId = ChaosResourceUsageId.builder()
                         .resourceId(chaosResourcesList.getItems().get(i).getResourceId())
-                        .measurementTime(String.valueOf(formatTime))
+                        .measurementTime(formatTime)
                         .build();
 
                 if(chaosResourcesList.getItems().get(i).getType().equals("node")){
@@ -247,10 +249,10 @@ public class SchedulerService {
      * @param podsMetrics   the podsMetricsItems
      * @return the Map<String, String>
      */
-    public String generatePodsUsageMapWithUnit(String type, PodMetrics podsMetrics) {
+    public Long generatePodsUsageMapWithUnit(String type, PodMetrics podsMetrics) {
         String unit = (type.equals(Constants.CPU)) ? Constants.CPU_UNIT : Constants.MEMORY_UNIT;
 
-         return String.valueOf(convertUsageUnit(type, podMetricSum(podsMetrics, type)));
+         return convertUsageUnit(type, podMetricSum(podsMetrics, type));
     }
 
     /**
@@ -278,9 +280,9 @@ public class SchedulerService {
      * @param node the nodesListItem
      * @return the Map<String, String>
      */
-    public String generateNodeUsageMap(String type, NodeMetrics node) {
+    public Long generateNodeUsageMap(String type, NodeMetrics node) {
         String unit = (type.equals(Constants.CPU)) ? Constants.CPU_UNIT : Constants.MEMORY_UNIT;
-        return String.valueOf(convertUsageUnit(type, node.getUsage().get(type).getNumber().doubleValue()));
+        return convertUsageUnit(type, node.getUsage().get(type).getNumber().doubleValue());
     }
 
     /**
