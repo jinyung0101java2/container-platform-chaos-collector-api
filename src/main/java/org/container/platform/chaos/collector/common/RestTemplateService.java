@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.Base64Utils;
@@ -23,7 +22,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.container.platform.chaos.collector.common.Constants.TARGET_COMMON_API;
 
@@ -184,31 +186,42 @@ public class RestTemplateService {
 
         LOGGER.info("<T> T SEND :: REQUEST: {} BASE-URL: {}, CONTENT-TYPE: {}", CommonUtils.loggerReplace(httpMethod), CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(reqHeaders.get(CONTENT_TYPE)));
 
-        ResponseEntity<T> resEntity = null;
         long startTime = System.currentTimeMillis();
-//
-//        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
-//        requestFactory.setConnectTimeout(1000);
-//        requestFactory.setReadTimeout(1000);
-//        restTemplate.setRequestFactory(requestFactory);
+
+        CompletableFuture<ResponseEntity<T>> futureResponse = CompletableFuture.supplyAsync(() -> {
+            try {
+                return (ResponseEntity<T>) restTemplate.exchange(reqUrl, httpMethod, reqEntity, String.class);
+            } catch (HttpStatusCodeException exception) {
+                LOGGER.info("HttpStatusCodeException API Call URL : {}, errorCode : {}, errorMessage : {}",
+                        CommonUtils.loggerReplace(reqUrl),
+                        CommonUtils.loggerReplace(exception.getRawStatusCode()),
+                        CommonUtils.loggerReplace(exception.getMessage()));
+                return (ResponseEntity<T>) ResponseEntity.status(exception.getRawStatusCode()).body("Error response");
+            } catch (Exception e) {
+                LOGGER.error("Unexpected error occurred API Call URL : {}, errorMessage : {}",
+                        CommonUtils.loggerReplace(reqUrl),
+                        CommonUtils.loggerReplace(e.getMessage()));
+                return (ResponseEntity<T>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+            }
+        });
 
         try {
-            resEntity = (ResponseEntity<T>) restTemplate.exchange(reqUrl, httpMethod, reqEntity, String.class);
-        } catch (HttpStatusCodeException exception) {
-            LOGGER.info("HttpStatusCodeException API Call URL : {}, errorCode : {}, errorMessage : {}", CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(exception.getRawStatusCode()), CommonUtils.loggerReplace(exception.getMessage()));
-            resEntity = (ResponseEntity<T>) ResponseEntity.status(exception.getRawStatusCode()).body("Error response");
-        }catch (Exception e) {
-            LOGGER.error("Unexpected error occurred API Call URL : {}, errorMessage : {}", CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(e.getMessage()));
-            resEntity = (ResponseEntity<T>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
-        }
+            ResponseEntity<T> resEntity = futureResponse.get(1, TimeUnit.SECONDS);
+            long elapsedTime = System.currentTimeMillis() - startTime;
 
-        long elapsedTime = System.currentTimeMillis() - startTime;
-
-        if (elapsedTime <= TimeUnit.SECONDS.toMillis(1)) {
-            LOGGER.info("Response received within 1 second: {}", resEntity);
-            return (T) Integer.valueOf(1);
-        } else {
-            LOGGER.error("Response took longer than 1 second: {}", elapsedTime);
+            if (elapsedTime <= TimeUnit.SECONDS.toMillis(1)) {
+                LOGGER.info("Response received within 1 second: {}", resEntity);
+                return (T) Integer.valueOf(1);
+            } else {
+                LOGGER.error("Response took longer than 1 second: {}", elapsedTime);
+                return (T) Integer.valueOf(0);
+            }
+        } catch (TimeoutException e) {
+            LOGGER.error("Request timed out after 1 second");
+            futureResponse.cancel(true); // 요청 취소
+            return (T) Integer.valueOf(0);
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.error("Error while waiting for response: {}", e.getMessage());
             return (T) Integer.valueOf(0);
         }
     }
