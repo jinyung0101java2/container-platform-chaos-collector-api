@@ -84,7 +84,7 @@ public class SchedulerService {
         String formatTime = adjustedNow.format(formatter);
         String chaosId = String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId());
 
-        if ((now.isAfter(startTime) || now.isEqual(startTime)) && now.isBefore(startTime.plusMinutes(1))) {
+        if ((now.isAfter(startTime) || now.isEqual(startTime)) && now.isBefore(startTime.plusMinutes(2))) {
 
           List<ChaosResourceUsage> chaosResourceUsages = new ArrayList<>();
             for(int i = 0; i < chaosResourcesList.getItems().size(); i++) {
