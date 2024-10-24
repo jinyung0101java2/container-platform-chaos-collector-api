@@ -139,7 +139,7 @@ public class SchedulerService {
                 LOGGER.info("Failed to register the collected chaos resource usage data to the DB.");
             }
 
-        } else if (now.isAfter(startTime.plusMinutes(1))) {
+        } else if (now.isAfter(startTime.plusMinutes(2))) {
             if (scheduledFuture != null && !scheduledFutures.get(chaosId).isCancelled()) {
                 scheduledFutures.get(chaosId).cancel(true);
                 scheduledFutures.remove(chaosId);
