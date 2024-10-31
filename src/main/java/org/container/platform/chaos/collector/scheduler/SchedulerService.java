@@ -68,12 +68,9 @@ public class SchedulerService {
 
     public void addSchedule(ChaosResourcesList chaosResourcesList, Params params) {
         LocalDateTime startTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getCreationTime()), ZoneId.systemDefault());
-//        LocalDateTime endTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getEndTime()), ZoneId.systemDefault());
-//        Duration duration = Duration.between(startTime, endTime);
-//        long durationInMillis = duration.toMillis();
 
-        scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, params),  10000);
-        scheduledFutures.put(String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId()), scheduledFuture);
+            scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, params),  10000);
+            scheduledFutures.put(String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId()), scheduledFuture);
     }
 
     public void executeSchedule(ChaosResourcesList chaosResourcesList, LocalDateTime startTime, Params params) {
