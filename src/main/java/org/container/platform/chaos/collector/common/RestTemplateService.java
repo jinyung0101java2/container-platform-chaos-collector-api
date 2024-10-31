@@ -192,16 +192,11 @@ public class RestTemplateService {
             try {
                 return (ResponseEntity<T>) restTemplate.exchange(reqUrl, httpMethod, reqEntity, String.class);
             } catch (HttpStatusCodeException exception) {
-                LOGGER.info("HttpStatusCodeException API Call URL : {}, errorCode : {}, errorMessage : {}",
-                        CommonUtils.loggerReplace(reqUrl),
-                        CommonUtils.loggerReplace(exception.getRawStatusCode()),
-                        CommonUtils.loggerReplace(exception.getMessage()));
-                return (ResponseEntity<T>) ResponseEntity.status(exception.getRawStatusCode()).body("Error response");
+                LOGGER.info("HttpStatusCodeException API Call URL : {}, errorCode : {}, errorMessage : {}", CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(exception.getRawStatusCode()), CommonUtils.loggerReplace(exception.getMessage()));
+                return null;
             } catch (Exception e) {
-                LOGGER.error("Unexpected error occurred API Call URL : {}, errorMessage : {}",
-                        CommonUtils.loggerReplace(reqUrl),
-                        CommonUtils.loggerReplace(e.getMessage()));
-                return (ResponseEntity<T>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+                LOGGER.error("Unexpected error occurred API Call URL : {}, errorMessage : {}", CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(e.getMessage()));
+                return null;
             }
         });
 
