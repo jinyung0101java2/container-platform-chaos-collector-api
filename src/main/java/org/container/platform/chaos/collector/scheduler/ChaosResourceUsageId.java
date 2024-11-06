@@ -1,5 +1,7 @@
 package org.container.platform.chaos.collector.scheduler;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 
@@ -15,4 +17,13 @@ import lombok.Data;
 public class ChaosResourceUsageId {
     private long resourceId;
     private String measurementTime;
+
+    @JsonCreator
+    public ChaosResourceUsageId(
+            @JsonProperty("id") long resourceId,
+            @JsonProperty("measurementTime") String measurementTime
+    ) {
+        this.resourceId = resourceId;
+        this.measurementTime = measurementTime;
+    }
 }
