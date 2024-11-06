@@ -95,32 +95,38 @@ public class SchedulerService {
                     params.setNodeName(chaosResourcesList.getItems().get(i).getResourceName());
                     NodeMetrics nodeMetrics = getResourceNode(params);
 
-                    ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
-                            .chaosResourceUsageId(chaosResourceUsageId)
-                            .cpu(generateNodeUsageMap(Constants.CPU, nodeMetrics))
-                            .memory(generateNodeUsageMap(Constants.MEMORY, nodeMetrics))
-                            .build();
-                    chaosResourceUsages.add(chaosResourceUsage);
-
+                    if(nodeMetrics != null) {
+                        ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
+                                .chaosResourceUsageId(chaosResourceUsageId)
+                                .cpu(generateNodeUsageMap(Constants.CPU, nodeMetrics))
+                                .memory(generateNodeUsageMap(Constants.MEMORY, nodeMetrics))
+                                .build();
+                        chaosResourceUsages.add(chaosResourceUsage);
+                    }
                 }else if(chaosResourcesList.getItems().get(i).getType().equals("pod")){
                     params.setPodName(chaosResourcesList.getItems().get(i).getResourceName());
                     PodMetrics podMetrics = getResourcePod(params);
 
-                    if(chaosResourcesList.getItems().get(i).getChoice() == 1) {
-                        ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
-                                .chaosResourceUsageId(chaosResourceUsageId)
-                                .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
-                                .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
-                                .appStatus(getAppStatus(params))
-                                .build();
-                        chaosResourceUsages.add(chaosResourceUsage);
-                    }else {
-                        ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
-                                .chaosResourceUsageId(chaosResourceUsageId)
-                                .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
-                                .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
-                                .build();
-                        chaosResourceUsages.add(chaosResourceUsage);
+                    if(podMetrics != null){
+                        Integer appStatus = getAppStatus(params);
+                        if(appStatus != null) {
+                            if (chaosResourcesList.getItems().get(i).getChoice() == 1) {
+                                ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
+                                        .chaosResourceUsageId(chaosResourceUsageId)
+                                        .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
+                                        .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
+                                        .appStatus(appStatus)
+                                        .build();
+                                chaosResourceUsages.add(chaosResourceUsage);
+                            } else {
+                                ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
+                                        .chaosResourceUsageId(chaosResourceUsageId)
+                                        .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
+                                        .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
+                                        .build();
+                                chaosResourceUsages.add(chaosResourceUsage);
+                            }
+                        }
                     }
                 }
             }
@@ -145,47 +151,50 @@ public class SchedulerService {
     }
 
     public NodeMetrics getResourceNode(Params params) {
-        HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
+        HashMap responseMap = (HashMap) restTemplateService.sendUsage(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiMetricsNodesGetUrl(), HttpMethod.GET, null, Map.class, params);
         return commonService.setResultObject(responseMap, NodeMetrics.class);
     }
 
     public PodMetrics getResourcePod(Params params) {
-        HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
+        HashMap responseMap = (HashMap) restTemplateService.sendUsage(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiMetricsPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
         return commonService.setResultObject(responseMap, PodMetrics.class);
     }
 
     public Integer getAppStatus(Params params) {
-        HashMap responsePodMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
+        HashMap responsePodMap = (HashMap) restTemplateService.sendUsage(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiListPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
+
         Pods pods = commonService.setResultObject(responsePodMap, Pods.class);
         String httpPort = null;
-
-        for(CommonContainer container : pods.getSpec().getContainers()){
-            if(container.getPorts() != null){
-                for(CommonPort port : container.getPorts() ) {
-                    if(port.getName().equals("http") || port.getName().equals("https")){
-                        httpPort = port.getContainerPort();
+        if (responsePodMap != null) {
+            for (CommonContainer container : pods.getSpec().getContainers()) {
+                if (container.getPorts() != null) {
+                    for (CommonPort port : container.getPorts()) {
+                        if (port.getName().equals("http") || port.getName().equals("https")) {
+                            httpPort = port.getContainerPort();
+                        }
                     }
                 }
             }
 
-        }
-        String podDnsUrl;
+            String podDnsUrl;
 
-        if (httpPort != null && !httpPort.isEmpty()) {
-            podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local:%s", pods.getName(), pods.getIp().replace(".", "-"), pods.getNamespace(), httpPort);
-        }else{
-            podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local", pods.getName(), pods.getIp().replace(".", "-"), pods.getNamespace());
-        }
+            if (httpPort != null && !httpPort.isEmpty()) {
+                podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local:%s", pods.getName(), pods.getIp().replace(".", "-"), pods.getNamespace(), httpPort);
+            } else {
+                podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local", pods.getName(), pods.getIp().replace(".", "-"), pods.getNamespace());
+            }
 
-        Integer responsePodDns = restTemplateService.sendDns(Constants.TARGET_CP_POD_DNS, podDnsUrl, HttpMethod.GET, null, params);
-        if(responsePodDns == null){
-            responsePodDns = 0;
-        }
+            Integer responsePodDns = restTemplateService.sendDns(Constants.TARGET_CP_POD_DNS, podDnsUrl, HttpMethod.GET, null, params);
+            if (responsePodDns == null) {
+                responsePodDns = 0;
+            }
 
-        return responsePodDns;
+            return responsePodDns;
+        }
+        return null;
     }
 
     /**

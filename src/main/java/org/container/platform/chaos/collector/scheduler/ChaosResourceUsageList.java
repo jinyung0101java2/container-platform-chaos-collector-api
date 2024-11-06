@@ -1,5 +1,7 @@
 package org.container.platform.chaos.collector.scheduler;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 import org.container.platform.chaos.collector.common.model.CommonItemMetaData;
@@ -22,5 +24,22 @@ public class ChaosResourceUsageList {
     private String detailMessage;
     private CommonItemMetaData itemMetaData;
     private List<ChaosResourceUsage> items;
+
+    @JsonCreator
+    public ChaosResourceUsageList(
+            @JsonProperty("resultCode") String resultCode,
+            @JsonProperty("resultMessage") String resultMessage,
+            @JsonProperty("httpStatusCode") Integer httpStatusCode,
+            @JsonProperty("detailMessage") String detailMessage,
+            @JsonProperty("itemMetaData") CommonItemMetaData itemMetaData,
+            @JsonProperty("items") List<ChaosResourceUsage> items
+    ) {
+        this.resultCode = resultCode;
+        this.resultMessage = resultMessage;
+        this.httpStatusCode = httpStatusCode;
+        this.detailMessage = detailMessage;
+        this.itemMetaData = itemMetaData;
+        this.items = items;
+    }
 
 }
