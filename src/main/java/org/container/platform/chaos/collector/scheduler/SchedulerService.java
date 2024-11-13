@@ -3,6 +3,10 @@ package org.container.platform.chaos.collector.scheduler;
 import lombok.RequiredArgsConstructor;
 import org.container.platform.chaos.collector.common.*;
 import org.container.platform.chaos.collector.common.model.*;
+import org.container.platform.chaos.collector.nodes.NodesList;
+import org.container.platform.chaos.collector.nodes.NodesListItem;
+import org.container.platform.chaos.collector.pods.PodsList;
+import org.container.platform.chaos.collector.pods.support.PodsListItem;
 import org.container.platform.chaos.collector.scheduler.custom.BaseExponent;
 import org.container.platform.chaos.collector.scheduler.custom.Quantity;
 import org.slf4j.Logger;
@@ -13,10 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import static org.container.platform.chaos.collector.scheduler.custom.SuffixBase.suffixToBinary;
@@ -47,39 +48,26 @@ public class SchedulerService {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchedulerService.class);
 
 
-
-    public ResultStatus getChaosResource(Params params) {
-        List<Long> resourceIds = params.getStressChaosResourceIds();
-        String queryParams = resourceIds.stream()
-                .map(resourceId -> "resourceId=" + resourceId)
-                .collect(Collectors.joining("&"));
-        ChaosResourcesList chaosResourcesList = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
-                "/chaos/chaosResourcesList?" + queryParams, HttpMethod.GET, null, ChaosResourcesList.class, params);
-
+    public ResultStatus addSchedule(Params params) {
         ResultStatus resultStatus = new ResultStatus();
 
-        try{
-            addSchedule(chaosResourcesList, params);
-        } catch (Exception e) {
-            return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_FAIL);
-        }
+        LocalDateTime startTime = LocalDateTime.ofInstant(Instant.parse(params.getCreationTime()), ZoneId.systemDefault());
+
+            scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(startTime, params),  10000);
+            scheduledFutures.put(String.valueOf(params.getChaosId()), scheduledFuture);
+
         return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
     }
 
-    public void addSchedule(ChaosResourcesList chaosResourcesList, Params params) {
-        LocalDateTime startTime = LocalDateTime.ofInstant(Instant.parse(chaosResourcesList.getItems().get(0).getStressChaos().getCreationTime()), ZoneId.systemDefault());
+    public void executeSchedule(LocalDateTime startTime, Params params) {
 
-            scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(chaosResourcesList, startTime, params),  10000);
-            scheduledFutures.put(String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId()), scheduledFuture);
-    }
 
-    public void executeSchedule(ChaosResourcesList chaosResourcesList, LocalDateTime startTime, Params params) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
         LocalDateTime now = LocalDateTime.now();
         int adjustedTime = (now.getSecond() / 10) * 10;
         LocalDateTime adjustedNow = now.withSecond(adjustedTime);
         String formatTime = adjustedNow.format(formatter);
-        String chaosId = String.valueOf(chaosResourcesList.getItems().get(0).getStressChaos().getChaosId());
+        long chaosId = params.getChaosId();
 
         if ((now.isAfter(startTime) || now.isEqual(startTime)) && now.isBefore(startTime.plusMinutes(2))) {
 
@@ -148,6 +136,145 @@ public class SchedulerService {
                 scheduledFutures.remove(chaosId);
             }
         }
+    }
+    /**
+     * Chaos Resource 정보 조회  (Get Chaos Resource info)
+     *
+     * @param params the params
+     * @return the ResultStatus
+     */
+    public List<ChaosResource> getChaosResources(Params params) {
+        PodsList podsList = getChaosPodListByLabel(params);
+        NodesList nodesList = getNodesList(params);
+        List<ChaosResource> chaosResources = setChaosResources(podsList, nodesList, params);
+
+        return chaosResources;
+    }
+
+    /**
+     * Chaos Resource 값 설정  (Set Chaos Resource)
+     *
+     * @return the chaosResources
+     * @List<ChaosResource> List<ChaosResource> the List<ChaosResource>
+     */
+    public List<ChaosResource> setChaosResources(PodsList podsList, NodesList nodesList, Params params) {
+        List<ChaosResource> chaosResources = new ArrayList<>();
+
+        if (!podsList.getItems().isEmpty()) {
+            for (PodsListItem item : podsList.getItems()) {
+                ChaosResource chaosResource = new ChaosResource();
+                chaosResource.setResourceName(item.getName());
+                chaosResource.setType("pod");
+                for (List<String> pods : params.getPods().values()) {
+                    for (String pod : pods) {
+                        if (item.getName().equals(pod)) {
+                            chaosResource.setChoice(1);
+                            break;
+                        } else {
+                            chaosResource.setChoice(0);
+                        }
+                    }
+                }
+                chaosResource.setGenerateName(item.getMetadata().getGenerateName());
+                chaosResource.setChaosName(params.getName());
+                chaosResource.setNamespaces(item.getNamespace());
+                chaosResources.add(chaosResource);
+            }
+        }
+
+        for (NodesListItem item : nodesList.getItems()) {
+            ChaosResource chaosResource = new ChaosResource();
+            chaosResource.setResourceName(item.getName());
+            chaosResource.setType("node");
+            chaosResource.setChoice(0);
+            chaosResources.add(chaosResource);
+        }
+
+        return chaosResources;
+    }
+
+    /**
+     * Chaos Pod List By Label 조회  (Get Chaos Pod List By Label)
+     *
+     * @return the PodsList
+     * @PodsList PodsList the PodsList
+     */
+    public PodsList getChaosPodListByLabel(Params params) {
+        PodsList totalPodsList = new PodsList();
+        params.setNamespace((String) params.getNamespaces().get(0));
+        Boolean firstSetting = true;
+
+        List<PodsListItem> totalItems = new ArrayList<>();
+
+        for (List<String> value : params.getPods().values()) {
+            for (String pod : value) {
+                params.setResourceName(pod);
+                HashMap responsePod = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
+                        propertyService.getCpMasterApiListPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
+                Pods pods = commonService.setResultObject(responsePod, Pods.class);
+                Map labels = (Map) pods.getLabels();
+                String fieldSelectors = "?labelSelector=";
+                int count = 0;
+                for (Object label : labels.entrySet()) {
+                    count++;
+                    if (count < labels.size()) {
+                        fieldSelectors += label + ",";
+                    } else {
+                        fieldSelectors += label;
+                    }
+                }
+
+                HashMap responsePodList = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
+                        propertyService.getCpMasterApiListPodsListUrl() + fieldSelectors, HttpMethod.GET, null, Map.class, params);
+                PodsList podsList = commonService.setResultObject(responsePodList, PodsList.class);
+                totalItems.addAll(podsList.getItems());
+            }
+        }
+        totalPodsList.setItems(totalItems);
+        PodsList removeDuplicatePodLists = removeDuplicatePodsList(totalPodsList);
+        List<PodsListItem> runningPodListsItem = removeDuplicatePodLists.getItems().stream()
+                .filter(item -> item.getStatus().getPhase().equals("Running"))
+                .collect(Collectors.toList());
+
+        PodsList podLists = new PodsList();
+        podLists.setItems(runningPodListsItem);
+
+        return (PodsList) commonService.setResultModel(podLists, Constants.RESULT_STATUS_SUCCESS);
+    }
+
+    /**
+     * Nodes 목록 조회(Get Nodes list)
+     *
+     * @param params the params
+     * @return the nodes list
+     */
+    public NodesList getNodesList(Params params) {
+        HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
+                propertyService.getCpMasterApiListNodesListUrl(), HttpMethod.GET, null, Map.class, params);
+        NodesList nodesList = commonService.setResultObject(responseMap, NodesList.class);
+        nodesList = commonService.resourceListProcessing(nodesList, params, NodesList.class);
+
+        return (NodesList) commonService.setResultModel(nodesList, Constants.RESULT_STATUS_SUCCESS);
+    }
+
+
+    /**
+     * PodsList 내 중복 파드 제거 (Remove duplicate pods in PodsList)
+     *
+     * @return the PodsList
+     * @PodsList PodsList the PodsList
+     */
+    public PodsList removeDuplicatePodsList(PodsList podsList) {
+        Set<String> podNames = new HashSet<>();
+
+        List<PodsListItem> removeDuplicateItems = podsList.getItems().stream()
+                .filter(item -> podNames.add(item.getName()))
+                .collect(Collectors.toList());
+
+        PodsList newPodsList = new PodsList();
+        newPodsList.setItems(removeDuplicateItems);
+
+        return newPodsList;
     }
 
     public NodeMetrics getResourceNode(Params params) {
