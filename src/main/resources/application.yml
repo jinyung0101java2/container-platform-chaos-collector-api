@@ -63,7 +63,10 @@ cpMaster:
         get: "/apis/metrics.k8s.io/v1beta1/namespaces/{namespace}/pods/{podname}"
     list:
       pods:
+        list: "/api/v1/namespaces/{namespace}/pods"
         get: "/api/v1/namespaces/{namespace}/pods/{podname}"
+      nodes:
+        list: "/api/v1/nodes"
 
 commonApi:
   url: ${CP_PORTAL_COMMON_API_URI}

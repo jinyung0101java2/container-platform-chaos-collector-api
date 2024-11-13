@@ -4,10 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import lombok.SneakyThrows;
 import org.container.platform.chaos.collector.clusters.clusters.Clusters;
-import org.container.platform.chaos.collector.common.model.CommonAnnotations;
-import org.container.platform.chaos.collector.common.model.CommonMetaData;
-import org.container.platform.chaos.collector.common.model.CommonStatusCode;
-import org.container.platform.chaos.collector.common.model.Params;
+import org.container.platform.chaos.collector.common.model.*;
 import org.container.platform.chaos.collector.login.support.PortalGrantedAuthority;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -250,4 +247,189 @@ public class CommonService {
 
         return clusters;
     }
+
+    /**
+     * Resource 목록에 대한 검색 및 페이징, 정렬을 위한 공통 메서드(Common Method for searching, paging, ordering about resource's list)
+     *
+     * @param resourceList the resourceList
+     * @param params
+     * @param requestClass the requestClass
+     * @return the T
+     */
+    public <T> T resourceListProcessing(Object resourceList, Params params, Class<T> requestClass) {
+        Object resourceReturnList = null;
+
+        List resourceItemList = getField("items", resourceList);
+
+        // 1. 키워드 match에 따른 리스트 필터
+        if (params.getSearchName() != null && !params.getSearchName().equals("")) {
+            if (params.getEvent()) {
+                resourceItemList = chaosSearchKeywordForResourceName(resourceItemList, params.getSearchName().trim());
+            } else {
+                resourceItemList = searchKeywordForResourceName(resourceItemList, params.getSearchName().trim());
+            }
+        }
+
+        // 2. 조건에 따른 리스트 정렬
+        resourceItemList = sortingListByCondition(resourceItemList, params.getOrderBy(), params.getOrder(), params.getEvent());
+
+        // 3. commonItemMetaData 추가
+        CommonItemMetaData commonItemMetaData = setCommonItemMetaData(resourceItemList, params.getOffset(), params.getLimit());
+        resourceReturnList = setField("itemMetaData", resourceList, commonItemMetaData);
+
+        // 4. offset, limit에 따른 리스트 subLIst
+        resourceItemList = subListforLimit(resourceItemList, params.getOffset(), params.getLimit());
+        resourceReturnList = setField("items", resourceReturnList, resourceItemList);
+
+
+        return (T) resourceReturnList;
+    }
+
+    /**
+     * 리소스 명 기준, 키워드가 포함된 리스트 반환 처리(return the list including keywords)
+     *
+     * @param commonList the commonList
+     * @param keyword    the keyword
+     * @return the list
+     */
+    public <T> List<T> searchKeywordForResourceName(List<T> commonList, String keyword) {
+        List filterList = commonList.stream()
+                .filter(x -> this.<String>getField(Constants.RESOURCE_NAME,
+                        getField(Constants.RESOURCE_METADATA, x)).matches("(?i).*" + keyword + ".*"))
+                .collect(Collectors.toList());
+
+        return filterList;
+    }
+
+
+    /**
+     * 리소스 명 기준, 키워드가 포함된 리스트 반환 처리(return the list including keywords)
+     *
+     * @param commonList the commonList
+     * @param keyword    the keyword
+     * @return the list
+     */
+    public <T> List<T> chaosSearchKeywordForResourceName(List<T> commonList, String keyword) {
+        List filterList = commonList.stream()
+                .filter(x -> this.<String>getField(Constants.RESOURCE_NAME, x).matches("(?i).*" + keyword + ".*"))
+                .collect(Collectors.toList());
+
+        return filterList;
+    }
+
+
+    /**
+     * 리소스 생성날짜 또는 이름으로 리스트 정렬 처리(order by creation time or name)
+     *
+     * @param commonList the commonList
+     * @param orderBy    the orderBy
+     * @param order      the order
+     * @return the list
+     */
+    public <T> List<T> sortingListByCondition(List<T> commonList, String orderBy, String order, Boolean event) {
+
+        List sortList = null;
+
+        orderBy = orderBy.toLowerCase();
+        order = order.toLowerCase();
+
+        if (orderBy.equals(Constants.RESOURCE_NAME)) {
+            //리소스명 기준
+            order = (order.equals("")) ? "asc" : order;
+            if (order.equals("asc")) {
+                sortList = commonList.stream().sorted(Comparator.comparing(x -> this.<String>getField(Constants.RESOURCE_NAME,
+                        getField(Constants.RESOURCE_METADATA, x)))).collect(Collectors.toList());
+            } else {
+                sortList = commonList.stream().sorted(Comparator.comparing(x -> this.<String>getField(Constants.RESOURCE_NAME,
+                        getField(Constants.RESOURCE_METADATA, x))).reversed()).collect(Collectors.toList());
+            }
+        } else if (orderBy.equals(Constants.RESOURCE_NS)) {
+            // 네임스페이스명 기준
+            order = (order.equals("")) ? "asc" : order;
+            if (order.equals("asc")) {
+                sortList = commonList.stream().sorted(Comparator.comparing(x -> this.<String>getField(Constants.RESOURCE_NS,
+                        getField(Constants.RESOURCE_METADATA, x)))).collect(Collectors.toList());
+            } else {
+                sortList = commonList.stream().sorted(Comparator.comparing(x -> this.<String>getField(Constants.RESOURCE_NS,
+                        getField(Constants.RESOURCE_METADATA, x))).reversed()).collect(Collectors.toList());
+            }
+        } else {
+            // 생성날짜 기준
+            order = (order.equals("")) ? "desc" : order;
+
+            if (order.equals("asc")) {
+
+                sortList = commonList.stream().sorted(Comparator.comparing(x -> this.<String>getField(Constants.RESOURCE_CREATIONTIMESTAMP,
+                        x))).collect(Collectors.toList());
+            } else {
+                if (!event) {
+                    sortList = commonList.stream().sorted(Comparator.comparing(x -> this.<String>getField(Constants.RESOURCE_CREATIONTIMESTAMP,
+                            getField(Constants.RESOURCE_METADATA, x))).reversed()).collect(Collectors.toList());
+                }
+                if (event) {
+                    sortList = commonList.stream().sorted(Comparator.comparing(x -> this.<String>getField(Constants.RESOURCE_CREATED_AT,
+                            x)).reversed()).collect(Collectors.toList());
+                }
+            }
+        }
+
+        return sortList;
+    }
+
+
+    /**
+     * commonItemMetaData 객체 생성(create a common Item Meta Data object)
+     *
+     * @param itemList the itemList
+     * @param offset   the offset
+     * @param limit    the limit
+     * @return the CommonItemMetaData
+     */
+    public CommonItemMetaData setCommonItemMetaData(List itemList, int offset, int limit) {
+        CommonItemMetaData commonItemMetaData = new CommonItemMetaData(0, 0);
+
+
+        if (limit < 0) {
+            throw new IllegalArgumentException(MessageConstant.LIMIT_ILLEGALARGUMENT.getMsg());
+        }
+        if (offset < 0) {
+            throw new IllegalArgumentException(MessageConstant.OFFSET_ILLEGALARGUMENT.getMsg());
+        }
+
+        if (offset > 0 && limit == 0) {
+            throw new IllegalArgumentException(MessageConstant.OFFSET_REQUIRES_LIMIT_ILLEGALARGUMENT.getMsg());
+        }
+
+
+        int allItemCount = itemList.size();
+        int remainingItemCount = allItemCount - ((offset + 1) * limit);
+
+        if (limit == 0 || remainingItemCount < 0) {
+            remainingItemCount = 0;
+        }
+
+        commonItemMetaData.setAllItemCount(allItemCount);
+        commonItemMetaData.setRemainingItemCount(remainingItemCount);
+
+        return commonItemMetaData;
+    }
+
+
+    /**
+     * offset & limit 을 통한 리스트 가공 처리(sublist using offset and limit)
+     *
+     * @param itemList the itemList
+     * @param offset   the offset
+     * @param limit    the limit
+     * @return the list
+     */
+    public <T> List<T> subListforLimit(List<T> itemList, int offset, int limit) {
+        List returnList = itemList;
+
+        if (limit > 0) {
+            returnList = itemList.stream().skip(offset * limit).limit(limit).collect(Collectors.toList());
+        }
+        return returnList;
+    }
+
 }

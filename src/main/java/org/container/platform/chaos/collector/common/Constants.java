@@ -40,6 +40,13 @@ public class Constants {
     //cluster
     public static final String RESOURCE_NAMESPACE = "Namespace";
 
+    public static final String RESOURCE_NAME = "name";
+
+    public static final String RESOURCE_CREATIONTIMESTAMP = "creationTimestamp";
+    public static final String RESOURCE_CREATED_AT = "created_at";
+
+    public static final String RESOURCE_NS = "namespace";
+
     public static final String NULL_REPLACE_TEXT = "-";
     public static final String U_LANG_KO = "ko";
     public static final String U_LANG_ENG = "en";
@@ -64,6 +71,8 @@ public class Constants {
         }
 
     }
+
+    public static final String STRING_CONDITION_READY = "Ready";
 
     public static final String CPU = "cpu";
     public static final String MEMORY = "memory";
