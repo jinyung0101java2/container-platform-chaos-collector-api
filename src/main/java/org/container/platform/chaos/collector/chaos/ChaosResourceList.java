@@ -1,7 +1,8 @@
-package org.container.platform.chaos.collector.common.model;
+package org.container.platform.chaos.collector.chaos;
 
 import lombok.Builder;
 import lombok.Data;
+import org.container.platform.chaos.collector.common.model.CommonItemMetaData;
 
 import java.util.List;
 
@@ -14,7 +15,7 @@ import java.util.List;
  */
 @Data
 @Builder
-public class ChaosResourcesList {
+public class ChaosResourceList {
     private String resultCode;
     private String resultMessage;
     private Integer httpStatusCode;
@@ -22,11 +23,11 @@ public class ChaosResourcesList {
     private CommonItemMetaData itemMetaData;
     private List<ChaosResource> items;
 
-    public ChaosResourcesList() {
+    public ChaosResourceList() {
 
     }
 
-    public ChaosResourcesList(String resultCode, String resultMessage, Integer httpStatusCode, String detailMessage, CommonItemMetaData itemMetaData, List<ChaosResource> items) {
+    public ChaosResourceList(String resultCode, String resultMessage, Integer httpStatusCode, String detailMessage, CommonItemMetaData itemMetaData, List<ChaosResource> items) {
         this.resultCode = resultCode;
         this.resultMessage = resultMessage;
         this.httpStatusCode = httpStatusCode;

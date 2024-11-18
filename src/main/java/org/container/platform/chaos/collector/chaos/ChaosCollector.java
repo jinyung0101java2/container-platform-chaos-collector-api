@@ -1,4 +1,4 @@
-package org.container.platform.chaos.collector.common.model;
+package org.container.platform.chaos.collector.chaos;
 
 import lombok.Data;
 

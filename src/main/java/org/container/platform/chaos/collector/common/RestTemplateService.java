@@ -17,6 +17,7 @@ import org.springframework.util.Base64Utils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import javax.jws.soap.SOAPBinding;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -393,7 +394,6 @@ public class RestTemplateService {
      * @param reqApi the reqApi
      */
     public String setRequestParameter(String reqApi, String reqUrl, HttpMethod httpMethod, Params params) {
-
         if (reqApi.equals(Constants.TARGET_CP_MASTER_API)) {
             if (httpMethod.equals(HttpMethod.GET) && params.getNamespace().equalsIgnoreCase(Constants.ALL_NAMESPACES)) {
                 reqUrl = reqUrl.replace("namespaces/{namespace}/", "");
@@ -404,6 +404,7 @@ public class RestTemplateService {
         if (reqApi.equals(Constants.TARGET_CHAOS_API)) {
             reqUrl = reqUrl.replace("{uid}", params.getUid());
         }
+
         return reqUrl;
     }
 }

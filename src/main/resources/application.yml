@@ -67,6 +67,10 @@ cpMaster:
         get: "/api/v1/namespaces/{namespace}/pods/{podname}"
       nodes:
         list: "/api/v1/nodes"
+    chaos:
+      stressScenarios:
+        get: "/apis/chaos-mesh.org/v1alpha1/namespaces/{namespace}/stresschaos/{chaosname}"
+
 
 commonApi:
   url: ${CP_PORTAL_COMMON_API_URI}
