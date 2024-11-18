@@ -1,6 +1,8 @@
 package org.container.platform.chaos.collector.scheduler;
 
 import lombok.RequiredArgsConstructor;
+import org.container.platform.chaos.collector.chaos.ChaosResource;
+import org.container.platform.chaos.collector.chaos.ChaosResourceList;
 import org.container.platform.chaos.collector.common.*;
 import org.container.platform.chaos.collector.common.model.*;
 import org.container.platform.chaos.collector.nodes.NodesList;
@@ -22,6 +24,7 @@ import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import static org.container.platform.chaos.collector.scheduler.custom.SuffixBase.suffixToBinary;
 import static org.container.platform.chaos.collector.scheduler.custom.SuffixBase.suffixToDecimal;
+import static org.springframework.vault.support.DurationParser.parseDuration;
 
 /**
  * SchedulerService 클래스
@@ -47,77 +50,103 @@ public class SchedulerService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SchedulerService.class);
 
+    /**
+     * Schedule 추가  (Add Schedule)
+     *
+     * @param params the params
+     * @return the ResultStatus
+     */
+
 
     public ResultStatus addSchedule(Params params) {
         ResultStatus resultStatus = new ResultStatus();
+        StressChaos stressChaos = getStressChaos(params);
 
-        LocalDateTime startTime = LocalDateTime.ofInstant(Instant.parse(params.getCreationTime()), ZoneId.systemDefault());
-
-            scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(startTime, params),  10000);
-            scheduledFutures.put(String.valueOf(params.getChaosId()), scheduledFuture);
+        scheduledFuture = threadPoolTaskScheduler.scheduleAtFixedRate(() -> executeSchedule(stressChaos, params),  10000);
+        scheduledFutures.put(String.valueOf(stressChaos.getChaosId()), scheduledFuture);
 
         return (ResultStatus) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
     }
 
-    public void executeSchedule(LocalDateTime startTime, Params params) {
+    /**
+     * Stress Chaos 정보 조회  (Get Stress Chaos info)
+     *
+     * @param params the params
+     * @return the ResultStatus
+     */
+    public StressChaos getStressChaos(Params params) {
+        HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_COMMON_API,
+                "/chaos/stressChaos?chaosName=" + params.getName() + "&namespace=" + params.getNamespaces().get(0), HttpMethod.GET, null, Map.class, params);
+        StressChaos stressChaos = commonService.setResultObject(responseMap, StressChaos.class);
 
+        return (StressChaos) commonService.setResultModel(stressChaos, Constants.RESULT_STATUS_SUCCESS);
+    }
 
+    /**
+     * Schedule 실행  (Execute Schedule)
+     *
+     * @param params the params
+     */
+    public void executeSchedule(StressChaos stressChaos, Params params) {
+        LocalDateTime startTime = LocalDateTime.ofInstant(Instant.parse(stressChaos.getCreationTime()), ZoneId.systemDefault());
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
         LocalDateTime now = LocalDateTime.now();
         int adjustedTime = (now.getSecond() / 10) * 10;
         LocalDateTime adjustedNow = now.withSecond(adjustedTime);
         String formatTime = adjustedNow.format(formatter);
-        long chaosId = params.getChaosId();
 
         if ((now.isAfter(startTime) || now.isEqual(startTime)) && now.isBefore(startTime.plusMinutes(2))) {
+          ChaosResourceList createChaosResourceList = createChaosResource(stressChaos, params);
+          ChaosResourceList getChaosResourceList = getChaosResource(stressChaos, params);
 
           List<ChaosResourceUsage> chaosResourceUsages = new ArrayList<>();
-            for(int i = 0; i < chaosResourcesList.getItems().size(); i++) {
+          if (getChaosResourceList != null && getChaosResourceList.getItems() != null) {
+              for (int i = 0; i < getChaosResourceList.getItems().size(); i++) {
+                  ChaosResourceUsageId chaosResourceUsageId = ChaosResourceUsageId.builder()
+                          .resourceId(getChaosResourceList.getItems().get(i).getResourceId())
+                          .measurementTime(formatTime)
+                          .build();
 
-                ChaosResourceUsageId chaosResourceUsageId = ChaosResourceUsageId.builder()
-                        .resourceId(chaosResourcesList.getItems().get(i).getResourceId())
-                        .measurementTime(formatTime)
-                        .build();
+                  if (getChaosResourceList.getItems().get(i).getType().equals("node")) {
+                      params.setNodeName(getChaosResourceList.getItems().get(i).getResourceName());
+                      NodeMetrics nodeMetrics = getResourceNode(params);
 
-                if(chaosResourcesList.getItems().get(i).getType().equals("node")){
-                    params.setNodeName(chaosResourcesList.getItems().get(i).getResourceName());
-                    NodeMetrics nodeMetrics = getResourceNode(params);
+                      if (nodeMetrics != null) {
+                          ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
+                                  .chaosResourceUsageId(chaosResourceUsageId)
+                                  .cpu(generateNodeUsageMap(Constants.CPU, nodeMetrics))
+                                  .memory(generateNodeUsageMap(Constants.MEMORY, nodeMetrics))
+                                  .build();
+                          chaosResourceUsages.add(chaosResourceUsage);
+                      }
+                  } else if (getChaosResourceList.getItems().get(i).getType().equals("pod")) {
+                      params.setPodName(getChaosResourceList.getItems().get(i).getResourceName());
+                      PodMetrics podMetrics = getResourcePod(params);
 
-                    if(nodeMetrics != null) {
-                        ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
-                                .chaosResourceUsageId(chaosResourceUsageId)
-                                .cpu(generateNodeUsageMap(Constants.CPU, nodeMetrics))
-                                .memory(generateNodeUsageMap(Constants.MEMORY, nodeMetrics))
-                                .build();
-                        chaosResourceUsages.add(chaosResourceUsage);
-                    }
-                }else if(chaosResourcesList.getItems().get(i).getType().equals("pod")){
-                    params.setPodName(chaosResourcesList.getItems().get(i).getResourceName());
-                    PodMetrics podMetrics = getResourcePod(params);
-
-                    if(podMetrics != null){
-                        Integer appStatus = getAppStatus(params);
-                        if(appStatus != null) {
-                            if (chaosResourcesList.getItems().get(i).getChoice() == 1) {
-                                ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
-                                        .chaosResourceUsageId(chaosResourceUsageId)
-                                        .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
-                                        .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
-                                        .appStatus(appStatus)
-                                        .build();
-                                chaosResourceUsages.add(chaosResourceUsage);
-                            } else {
-                                ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
-                                        .chaosResourceUsageId(chaosResourceUsageId)
-                                        .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
-                                        .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
-                                        .build();
-                                chaosResourceUsages.add(chaosResourceUsage);
-                            }
-                        }
-                    }
-                }
-            }
+                      if (podMetrics != null) {
+                          Integer appStatus = getAppStatus(params);
+                          if (appStatus != null) {
+                              if (getChaosResourceList.getItems().get(i).getChoice() == 1) {
+                                  ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
+                                          .chaosResourceUsageId(chaosResourceUsageId)
+                                          .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
+                                          .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
+                                          .appStatus(appStatus)
+                                          .build();
+                                  chaosResourceUsages.add(chaosResourceUsage);
+                              } else {
+                                  ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
+                                          .chaosResourceUsageId(chaosResourceUsageId)
+                                          .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
+                                          .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
+                                          .build();
+                                  chaosResourceUsages.add(chaosResourceUsage);
+                              }
+                          }
+                      }
+                  }
+              }
+          }
 
             ChaosResourceUsageList chaosResourceUsageList = ChaosResourceUsageList.builder()
                     .items(chaosResourceUsages)
@@ -131,67 +160,47 @@ public class SchedulerService {
             }
 
         } else if (now.isAfter(startTime.plusMinutes(2))) {
-            if (scheduledFuture != null && !scheduledFutures.get(chaosId).isCancelled()) {
-                scheduledFutures.get(chaosId).cancel(true);
-                scheduledFutures.remove(chaosId);
+
+            if (scheduledFuture != null) {
+                if(!scheduledFutures.get(String.valueOf(stressChaos.getChaosId())).isCancelled()) {
+                    scheduledFutures.get(String.valueOf(stressChaos.getChaosId())).cancel(true);
+                    scheduledFutures.remove(String.valueOf(stressChaos.getChaosId()));
+                }
+
             }
         }
     }
+
+
+    /**
+     * Chaos Resources Data 생성(Create Chaos Resources Data)
+     *
+     * @param params the params
+     * @return the ChaosResourceList
+     */
+    public ChaosResourceList createChaosResource(StressChaos stressChaos, Params params) {
+        ChaosResourceList chaosResourceList = getChaosResourceData(stressChaos, params);
+        ChaosResourceList resultStatus = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
+                "/chaos/chaosResourceList", HttpMethod.POST, chaosResourceList, ChaosResourceList.class, params);
+        return (ChaosResourceList) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
+    }
+
+
     /**
      * Chaos Resource 정보 조회  (Get Chaos Resource info)
      *
      * @param params the params
      * @return the ResultStatus
      */
-    public List<ChaosResource> getChaosResources(Params params) {
+    public ChaosResourceList getChaosResourceData(StressChaos stressChaos, Params params) {
         PodsList podsList = getChaosPodListByLabel(params);
         NodesList nodesList = getNodesList(params);
-        List<ChaosResource> chaosResources = setChaosResources(podsList, nodesList, params);
-
-        return chaosResources;
+        List<ChaosResource> chaosResources = setChaosResources(stressChaos, podsList, nodesList, params);
+        ChaosResourceList chaosResourceList = new ChaosResourceList();
+        chaosResourceList.setItems(chaosResources);
+        return chaosResourceList;
     }
 
-    /**
-     * Chaos Resource 값 설정  (Set Chaos Resource)
-     *
-     * @return the chaosResources
-     * @List<ChaosResource> List<ChaosResource> the List<ChaosResource>
-     */
-    public List<ChaosResource> setChaosResources(PodsList podsList, NodesList nodesList, Params params) {
-        List<ChaosResource> chaosResources = new ArrayList<>();
-
-        if (!podsList.getItems().isEmpty()) {
-            for (PodsListItem item : podsList.getItems()) {
-                ChaosResource chaosResource = new ChaosResource();
-                chaosResource.setResourceName(item.getName());
-                chaosResource.setType("pod");
-                for (List<String> pods : params.getPods().values()) {
-                    for (String pod : pods) {
-                        if (item.getName().equals(pod)) {
-                            chaosResource.setChoice(1);
-                            break;
-                        } else {
-                            chaosResource.setChoice(0);
-                        }
-                    }
-                }
-                chaosResource.setGenerateName(item.getMetadata().getGenerateName());
-                chaosResource.setChaosName(params.getName());
-                chaosResource.setNamespaces(item.getNamespace());
-                chaosResources.add(chaosResource);
-            }
-        }
-
-        for (NodesListItem item : nodesList.getItems()) {
-            ChaosResource chaosResource = new ChaosResource();
-            chaosResource.setResourceName(item.getName());
-            chaosResource.setType("node");
-            chaosResource.setChoice(0);
-            chaosResources.add(chaosResource);
-        }
-
-        return chaosResources;
-    }
 
     /**
      * Chaos Pod List By Label 조회  (Get Chaos Pod List By Label)
@@ -203,12 +212,11 @@ public class SchedulerService {
         PodsList totalPodsList = new PodsList();
         params.setNamespace((String) params.getNamespaces().get(0));
         Boolean firstSetting = true;
-
         List<PodsListItem> totalItems = new ArrayList<>();
 
         for (List<String> value : params.getPods().values()) {
             for (String pod : value) {
-                params.setResourceName(pod);
+                params.setPodName(pod);
                 HashMap responsePod = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
                         propertyService.getCpMasterApiListPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
                 Pods pods = commonService.setResultObject(responsePod, Pods.class);
@@ -257,6 +265,50 @@ public class SchedulerService {
         return (NodesList) commonService.setResultModel(nodesList, Constants.RESULT_STATUS_SUCCESS);
     }
 
+    /**
+     * Chaos Resource 값 설정  (Set Chaos Resource)
+     *
+     * @return the chaosResources
+     * @List<ChaosResource> List<ChaosResource> the List<ChaosResource>
+     */
+    public List<ChaosResource> setChaosResources(StressChaos stressChaos, PodsList podsList, NodesList nodesList, Params params) {
+        List<ChaosResource> chaosResources = new ArrayList<>();
+
+        if (!podsList.getItems().isEmpty()) {
+            for (PodsListItem item : podsList.getItems()) {
+                ChaosResource chaosResource = new ChaosResource();
+                chaosResource.setResourceName(item.getName());
+                chaosResource.setType("pod");
+                for (List<String> pods : params.getPods().values()) {
+                    for (String pod : pods) {
+                        if (item.getName().equals(pod)) {
+                            chaosResource.setChoice(1);
+                            break;
+                        } else {
+                            chaosResource.setChoice(0);
+                        }
+                    }
+                }
+                chaosResource.setGenerateName(item.getMetadata().getGenerateName());
+                chaosResource.setChaosName(params.getName());
+                chaosResource.setNamespaces(item.getNamespace());
+                chaosResource.setStressChaos(stressChaos);
+                chaosResources.add(chaosResource);
+            }
+        }
+
+        for (NodesListItem item : nodesList.getItems()) {
+            ChaosResource chaosResource = new ChaosResource();
+            chaosResource.setResourceName(item.getName());
+            chaosResource.setType("node");
+            chaosResource.setChoice(0);
+            chaosResource.setStressChaos(stressChaos);
+            chaosResources.add(chaosResource);
+        }
+
+        return chaosResources;
+    }
+
 
     /**
      * PodsList 내 중복 파드 제거 (Remove duplicate pods in PodsList)
@@ -276,6 +328,13 @@ public class SchedulerService {
 
         return newPodsList;
     }
+
+    public ChaosResourceList getChaosResource(StressChaos stressChaos, Params params) {
+        ChaosResourceList resultStatus = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
+                "/chaos/chaosResourceList?chaosId=" + stressChaos.getChaosId(), HttpMethod.GET, null, ChaosResourceList.class, params);
+        return (ChaosResourceList) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
+    }
+
 
     public NodeMetrics getResourceNode(Params params) {
         HashMap responseMap = (HashMap) restTemplateService.sendUsage(Constants.TARGET_CP_MASTER_API,

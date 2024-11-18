@@ -86,8 +86,6 @@ public class Params {
     private String uid = Constants.EMPTY_STRING;
     public String chaosNamespace = Constants.EMPTY_STRING;
     private String duration = Constants.EMPTY_STRING;
-    private String creationTime = Constants.EMPTY_STRING;
-    private long chaosId = Constants.EMPTY_STRING;
     private String action = Constants.EMPTY_STRING;
     private String gracePeriod = Constants.EMPTY_STRING;
     private Map<String, String> labelSelectors = null;

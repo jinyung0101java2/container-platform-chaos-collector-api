@@ -1,7 +1,8 @@
-package org.container.platform.chaos.collector.common.model;
+package org.container.platform.chaos.collector.chaos;
 
 import lombok.Builder;
 import lombok.Data;
+import org.container.platform.chaos.collector.common.model.StressChaos;
 
 /**
  * ChaosResource 클래스

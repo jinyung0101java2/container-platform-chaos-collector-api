@@ -29,7 +29,6 @@ public class PropertyService {
     @Value("${cpAnnotations.last-applied}")
     String cpAnnotationsLastApplied;
 
-
     // metrics api
     @Value("${cpMaster.api.metrics.node.list}")
     private String cpMasterApiMetricsNodesListUrl;
