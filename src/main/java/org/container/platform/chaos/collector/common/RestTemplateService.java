@@ -198,9 +198,10 @@ public class RestTemplateService {
             } catch (HttpStatusCodeException exception) {
                 LOGGER.info("HttpStatusCodeException API Call URL : {}, errorCode : {}, errorMessage : {}", CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(exception.getRawStatusCode()), CommonUtils.loggerReplace(exception.getMessage()));
                 return null;
-            } catch (Exception e) {
-                LOGGER.error("Unexpected error occurred API Call URL : {}, errorMessage : {}", CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(e.getMessage()));
-                return null;
+            } catch (Exception exception) {
+                LOGGER.error("Unexpected error occurred API Call URL : {}, errorMessage : {}", CommonUtils.loggerReplace(reqUrl), CommonUtils.loggerReplace(exception.getMessage()));
+                return (ResponseEntity<T>) restTemplate.exchange(reqUrl, httpMethod, reqEntity, String.class);
+
             }
         });
 
@@ -209,8 +210,8 @@ public class RestTemplateService {
             long elapsedTime = System.currentTimeMillis() - startTime;
 
             if (elapsedTime <= TimeUnit.SECONDS.toMillis(1)) {
-                LOGGER.info("Response received within 1 second: {}", resEntity);
-                return (T) Integer.valueOf(1);
+                    LOGGER.info("Response received within 1 second: {}", resEntity);
+                    return (T) Integer.valueOf(1);
             } else {
                 LOGGER.error("Response took longer than 1 second: {}", elapsedTime);
                 return (T) Integer.valueOf(0);
