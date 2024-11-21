@@ -126,7 +126,6 @@ public class SchedulerService {
                       if (podMetrics != null) {
                           Integer appStatus = getAppStatus(params);
                           if (appStatus != null) {
-                              if (getChaosResourceList.getItems().get(i).getChoice() == 1) {
                                   ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
                                           .chaosResourceUsageId(chaosResourceUsageId)
                                           .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
@@ -134,14 +133,6 @@ public class SchedulerService {
                                           .appStatus(appStatus)
                                           .build();
                                   chaosResourceUsages.add(chaosResourceUsage);
-                              } else {
-                                  ChaosResourceUsage chaosResourceUsage = ChaosResourceUsage.builder()
-                                          .chaosResourceUsageId(chaosResourceUsageId)
-                                          .cpu(generatePodsUsageMapWithUnit(Constants.CPU, podMetrics))
-                                          .memory(generatePodsUsageMapWithUnit(Constants.MEMORY, podMetrics))
-                                          .build();
-                                  chaosResourceUsages.add(chaosResourceUsage);
-                              }
                           }
                       }
                   }
@@ -373,12 +364,7 @@ public class SchedulerService {
                 podDnsUrl = String.format("http://%s.%s.%s.pod.cluster.local", pods.getName(), pods.getIp().replace(".", "-"), pods.getNamespace());
             }
 
-            Integer responsePodDns = restTemplateService.sendDns(Constants.TARGET_CP_POD_DNS, podDnsUrl, HttpMethod.GET, null, params);
-            if (responsePodDns == null) {
-                responsePodDns = 0;
-            }
-
-            return responsePodDns;
+            return restTemplateService.sendDns(Constants.TARGET_CP_POD_DNS, podDnsUrl, HttpMethod.GET, null, params);
         }
         return null;
     }
