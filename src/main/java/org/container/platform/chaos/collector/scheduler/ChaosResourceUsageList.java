@@ -25,6 +25,10 @@ public class ChaosResourceUsageList {
     private CommonItemMetaData itemMetaData;
     private List<ChaosResourceUsage> items;
 
+    public ChaosResourceUsageList() {
+
+    }
+
     @JsonCreator
     public ChaosResourceUsageList(
             @JsonProperty("resultCode") String resultCode,
