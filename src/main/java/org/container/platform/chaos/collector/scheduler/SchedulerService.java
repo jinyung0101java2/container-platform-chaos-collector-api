@@ -462,32 +462,4 @@ public class SchedulerService {
         String unit = (type.equals(Constants.CPU)) ? Constants.CPU_UNIT : Constants.MEMORY_UNIT;
         return convertUsageUnit(type, node.getUsage().get(type).getNumber().doubleValue());
     }
-
-    /**
-     * Nodes 사용량 Percent 계산 (Get Nodes Usage Percent)
-     *
-     * @param node the nodesListItem
-     * @param type the type
-     * @return the double
-     */
-    public double findNodePercentage(NodeMetrics node, String type) {
-        Quantity capacity = node.getStatus().getAllocatable().get(type);
-        Quantity usage = node.getUsage().get(type);
-        if (capacity == null) {
-            return Double.POSITIVE_INFINITY;
-        }
-        return usage.getNumber().doubleValue() / capacity.getNumber().doubleValue();
-    }
-
-    /**
-     * Percent String 포맷 (Percent String format)
-     *
-     * @param value the value
-     * @return the String
-     */
-    public long convertPercnUnit(double value) {
-        return Math.round(value * 100);
-    }
-
-
 }

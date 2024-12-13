@@ -1,45 +1,50 @@
 spring:
   application:
-    name: cp-portal-chaos-collector
+    name: cp-chaos-collector
+  security:
+    username: admin
+    password: cpcollector!123
   freemarker:
     template-loader-path: classpath:/templates/
-
-project:
-  name: cp-portal-chaos-collector
-  artifactId: cp-portal-chaos-collector
-  description: Chaos Collector of the Container Platform Portal
 
 management:
   security:
     enabled: false
 
-cpNamespace:
-  ignoreNamespace: kubernetes-dashboard, kube-node-lease, kube-public, kube-system, default, cp-temp-namespace
-  defaultNamespace: cp-portal-temp-namespace
+server:
+  port: ${PORT:8094}
+  auth:
+    valid: N
+
+vault:
+  path:
+    cluster-token: "secret/cluster/{id}"
+
+aspect:
+  enabled: false # for checking Elapsed time
+
+cpAnnotations:
+  configuration: kubectl.kubernetes.io/, kubernetes.io/, k8s.io/
+  last-applied: last-applied
 
 cpMaster:
   api:
-    url: TEST-ONLY.DUMMY.COM:6443
+    metrics:
+      node:
+        list: "/apis/metrics.k8s.io/v1beta1/nodes"
+        get: "/apis/metrics.k8s.io/v1beta1/nodes/{nodename}"
+      pod:
+        list: "/apis/metrics.k8s.io/v1beta1/namespaces/{namespace}/pods"
+        get: "/apis/metrics.k8s.io/v1beta1/namespaces/{namespace}/pods/{podname}"
     list:
-      roleBindings:
-        create: "/apis/rbac.authorization.k8s.io/v1/namespaces/{namespace}/rolebindings"
-        delete: "/apis/rbac.authorization.k8s.io/v1/namespaces/{namespace}/rolebindings/{name}"
-      users:
-        get: "/api/v1/namespaces/{namespace}/serviceaccounts/{name}"
-        create: "/api/v1/namespaces/{namespace}/serviceaccounts"
-        delete: "/api/v1/namespaces/{namespace}/serviceaccounts/{name}"
-      namespaces:
-        list: "/api/v1/namespaces"
-        get: "/api/v1/namespaces/{namespace}"
-        create: "/api/v1/namespaces"
-        delete: "/api/v1/namespaces/{name}"
-        update: "/api/v1/namespaces/{name}"
-      secrets:
-        get: "/api/v1/namespaces/{namespace}/secrets/{name}"
-        create: "/api/v1/namespaces/{namespace}/secrets"
-      clusterRoleBindings:
-        create: "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings"
-        delete: "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/{name}"
+      pods:
+        list: "/api/v1/namespaces/{namespace}/pods"
+        get: "/api/v1/namespaces/{namespace}/pods/{podname}"
+      nodes:
+        list: "/api/v1/nodes"
+    chaos:
+      stressScenarios:
+        get: "/apis/chaos-mesh.org/v1alpha1/namespaces/{namespace}/stresschaos/{chaosname}"
 
 commonApi:
   url: ${CP_PORTAL_COMMON_API_URI}
