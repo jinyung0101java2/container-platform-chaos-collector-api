@@ -32,7 +32,7 @@ public class SwaggerConfig {
         return new Docket(DocumentationType.SWAGGER_2)
                 .groupName("v1.0")
                 .select()
-                .apis(RequestHandlerSelectors.basePackage("org.container.platform.chaos.api"))
+                .apis(RequestHandlerSelectors.basePackage("org.container.platform.chaos.collector"))
                 .paths(PathSelectors.any())
                 .build()
                 .apiInfo(apiInfo())
@@ -44,7 +44,7 @@ public class SwaggerConfig {
     @Bean
     public ApiInfo apiInfo() {
         return new ApiInfoBuilder()
-                .title("K-PaaS Container Platform API Docs")
+                .title("K-PaaS Container Platform Chaos Collector API Docs")
                 .version("v1.0")
                 .description("This is a API Document created with swagger.")
                 .license("Apache2.0")
