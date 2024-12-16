@@ -46,7 +46,7 @@ public class SchedulerController {
      * @return
      */
     @ApiOperation(value = "Scheduler 등록(Register Scheduler)", nickname = "addSchedule")
-    @ApiImplicitParams({ @ApiImplicitParam(name = "params", value = "request parameters", required = true, dataTypeClass = ChaosCollector.class, paramType = "body")})
+    @ApiImplicitParams({ @ApiImplicitParam(name = "params", value = "request parameters", required = true, dataTypeClass = Params.class, paramType = "body")})
     @PostMapping
     public ResultStatus addSchedule(@RequestBody Params params) {
         ResultStatus resultStatus = schedulerService.addSchedule(params);
