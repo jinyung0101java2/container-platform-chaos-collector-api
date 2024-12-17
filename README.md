@@ -56,7 +56,7 @@
 ## K-PaaS 컨테이너 플랫폼 Chaos Collector
 K-PaaS 컨테이너 플랫폼 포털 제어에 필요한 REST API를 제공합니다.
 - [시작하기](#시작하기)
-  - [컨테이너 플랫폼 API 빌드 방법](#컨테이너-플랫폼-api-빌드-방법)
+  - [컨테이너 플랫폼 Chaos Collector 빌드 방법](#컨테이너-플랫폼-chaos-collector-빌드-방법)
 - [문서](#문서)
 - [개발 환경](#개발-환경)
 - [라이선스](#라이선스)
@@ -81,7 +81,7 @@ $ gradle build
 <br>
 
 ## 개발 환경
-K-PaaS 컨테이너 플랫폼 API의 개발 환경은 다음과 같습니다.
+K-PaaS 컨테이너 플랫폼 Chaos Collector의 개발 환경은 다음과 같습니다.
 
 | Situation                      | Version |
 | ------------------------------ | ------- |
