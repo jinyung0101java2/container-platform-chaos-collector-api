@@ -17,7 +17,6 @@ import org.springframework.util.Base64Utils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
-import javax.jws.soap.SOAPBinding;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,7 +45,6 @@ public class RestTemplateService {
     private final String commonApiBase64Authorization;
     private final RestTemplate restTemplate;
     protected final PropertyService propertyService;
-    private final CommonService commonService;
     protected final VaultService vaultService;
     protected String base64Authorization;
 
@@ -62,14 +60,12 @@ public class RestTemplateService {
     @Autowired
     public RestTemplateService(RestTemplate restTemplate,
                                PropertyService propertyService,
-                               CommonService commonService,
                                VaultService vaultService,
                                @Value("${commonApi.authorization.id}") String commonApiAuthorizationId,
                                @Value("${commonApi.authorization.password}") String commonApiAuthorizationPassword
     ) {
         this.restTemplate = restTemplate;
         this.propertyService = propertyService;
-        this.commonService = commonService;
         this.vaultService = vaultService;
         this.commonApiBase64Authorization = "Basic "
                 + Base64Utils.encodeToString(

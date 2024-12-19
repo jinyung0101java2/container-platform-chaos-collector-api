@@ -1,7 +1,5 @@
 package org.container.platform.chaos.collector.scheduler;
 
-import org.container.platform.chaos.collector.chaos.ChaosResourceList;
-import org.container.platform.chaos.collector.chaos.ExperimentsItem;
 import org.container.platform.chaos.collector.common.CommonService;
 import org.container.platform.chaos.collector.common.Constants;
 import org.container.platform.chaos.collector.common.PropertyService;
@@ -21,15 +19,12 @@ import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.xmlunit.util.Nodes;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.*;
 import static org.mockito.Mockito.when;
 
 /**

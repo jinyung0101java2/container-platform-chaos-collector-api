@@ -1,4 +1,4 @@
-package org.container.platform.chaos.collector.chaos;
+package org.container.platform.chaos.collector.scheduler;
 
 import lombok.Builder;
 import lombok.Data;

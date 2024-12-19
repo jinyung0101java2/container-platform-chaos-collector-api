@@ -1,8 +1,6 @@
 package org.container.platform.chaos.collector.scheduler;
 
 import lombok.RequiredArgsConstructor;
-import org.container.platform.chaos.collector.chaos.ChaosResource;
-import org.container.platform.chaos.collector.chaos.ChaosResourceList;
 import org.container.platform.chaos.collector.common.*;
 import org.container.platform.chaos.collector.common.model.*;
 import org.container.platform.chaos.collector.nodes.NodesList;
@@ -24,7 +22,6 @@ import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import static org.container.platform.chaos.collector.scheduler.custom.SuffixBase.suffixToBinary;
 import static org.container.platform.chaos.collector.scheduler.custom.SuffixBase.suffixToDecimal;
-import static org.springframework.vault.support.DurationParser.parseDuration;
 
 /**
  * SchedulerService 클래스
@@ -320,25 +317,48 @@ public class SchedulerService {
         return newPodsList;
     }
 
+    /**
+     * Chaos Resource 조회(Get Chaos Resource)
+     *
+     * @return the ChaosResourceList
+     * @ChaosResourceList ChaosResourceList
+     */
     public ChaosResourceList getChaosResource(StressChaos stressChaos, Params params) {
         ChaosResourceList resultStatus = restTemplateService.sendGlobal(Constants.TARGET_COMMON_API,
                 "/chaos/chaosResourceList?chaosId=" + stressChaos.getChaosId(), HttpMethod.GET, null, ChaosResourceList.class, params);
         return (ChaosResourceList) commonService.setResultModel(resultStatus, Constants.RESULT_STATUS_SUCCESS);
     }
 
-
+    /**
+     * Node의 Metrics 조회(Get Node Metric)
+     *
+     * @return the NodeMetrics
+     * @NodeMetrics NodeMetrics
+     */
     public NodeMetrics getResourceNode(Params params) {
         HashMap responseMap = (HashMap) restTemplateService.sendUsage(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiMetricsNodesGetUrl(), HttpMethod.GET, null, Map.class, params);
         return commonService.setResultObject(responseMap, NodeMetrics.class);
     }
 
+    /**
+     * Pod의 Metrics 조회(Get Pod Metric)
+     *
+     * @return the PodMetrics
+     * @PodMetrics PodMetrics
+     */
     public PodMetrics getResourcePod(Params params) {
         HashMap responseMap = (HashMap) restTemplateService.sendUsage(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiMetricsPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
         return commonService.setResultObject(responseMap, PodMetrics.class);
     }
 
+    /**
+     * App의 상태 조회(Get App Status)
+     *
+     * @return the Integer
+     * @Integer Integer
+     */
     public Integer getAppStatus(Params params) {
         HashMap responsePodMap = (HashMap) restTemplateService.sendUsage(Constants.TARGET_CP_MASTER_API,
                 propertyService.getCpMasterApiListPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
@@ -369,35 +389,6 @@ public class SchedulerService {
         return null;
     }
 
-    /**
-     * Pods 상세 조회(Get Pods Detail)
-     *
-     * @param params the params
-     * @return the pods detail
-     */
-    public Pods getPods(Params params) {
-        HashMap responseMap = (HashMap) restTemplateService.send(Constants.TARGET_CP_MASTER_API,
-                propertyService.getCpMasterApiListPodsGetUrl(), HttpMethod.GET, null, Map.class, params);
-
-        PodsStatus status = commonService.setResultObject(responseMap.get(STATUS_FIELD_NAME), PodsStatus.class);
-
-        if(status.getContainerStatuses() == null) {
-            List<ContainerStatusesItem> list = new ArrayList<>();
-            ContainerStatusesItem item = new ContainerStatusesItem();
-            item.setRestartCount(0);
-
-            list.add(item);
-            status.setContainerStatuses(list);
-        }
-
-        responseMap.put(STATUS_FIELD_NAME, status);
-
-        Pods pods = commonService.setResultObject(responseMap, Pods.class);
-        pods = commonService.annotationsProcessing(pods, Pods.class);
-
-        return (Pods) commonService.setResultModel(pods, Constants.RESULT_STATUS_SUCCESS);
-
-    }
 
     /**
      * 사용량 단위 변환 (Convert Usage Units)

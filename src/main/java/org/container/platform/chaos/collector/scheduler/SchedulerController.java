@@ -6,7 +6,6 @@ import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import org.container.platform.chaos.collector.common.CommonService;
 import org.container.platform.chaos.collector.common.Constants;
-import org.container.platform.chaos.collector.chaos.ChaosCollector;
 import org.container.platform.chaos.collector.common.model.Params;
 import org.container.platform.chaos.collector.common.model.ResultStatus;
 import org.springframework.beans.factory.annotation.Autowired;
